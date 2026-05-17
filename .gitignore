@@ -1,0 +1,21 @@
+# Build output
+/target/
+mcib3d-core-*.jar
+
+# IDE files
+/.idea/
+*.iml
+/.vscode/
+/.classpath
+/.project
+/.settings/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temp files
+*.tmp.*

@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use 3D Objects Counter+ in published work, please cite it as below."
+type: software
+title: "3D Objects Counter+: morphology-filterable 3D object counting for Fiji/ImageJ"
+abstract: >-
+  Extension of the classic Fiji 3D Objects Counter (Bolte and Cordelieres,
+  2006) with morphological filters (sphericity, compactness, elongation,
+  volume, surface area, Feret diameter, intensity), a public Java API,
+  and macro-recordable workflows.
+authors:
+  - given-names: Jamie
+    family-names: Malcolm
+    orcid: "https://orcid.org/0009-0008-3862-2776"
+    affiliation: "UK Dementia Research Institute at Imperial College London"
+    email: jamiemalcolm12@gmail.com
+repository-code: "https://github.com/Jay2owe/3DObjectsCounterPlus"
+url: "https://github.com/Jay2owe/3DObjectsCounterPlus"
+license: BSD-3-Clause
+version: "0.1.0"
+date-released: 2026-05-17
+keywords:
+  - fiji
+  - imagej
+  - microscopy
+  - 3d-object-counting
+  - morphological-filtering
+  - segmentation
+references:
+  - type: article
+    title: "A guided tour into subcellular colocalization analysis in light microscopy"
+    authors:
+      - family-names: Bolte
+        given-names: S.
+      - family-names: Cordelieres
+        given-names: F. P.
+    journal: "Journal of Microscopy"
+    year: 2006
+    doi: "10.1111/j.1365-2818.2006.01706.x"
