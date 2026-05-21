@@ -9,9 +9,6 @@ It extends the workflow of the native
 surface area, Feret diameter, and intensity, while keeping the familiar
 threshold, size-filter, map, statistics, and macro workflow.
 
-> **Status:** `0.1.0` is a public pre-release. The Fiji update site is planned
-> but not live yet; for now, use a packaged JAR or build from source.
-
 ## What It Adds
 
 - Native-like `Analyze > 3D Objects Counter+` dialog.
