@@ -28,15 +28,20 @@ Requirements:
 - The standard Fiji `3D Objects Counter` and `mcib3d-core` dependencies, which
   are provided by Fiji's core update sites.
 
+Update-site install:
+
+1. In Fiji, choose `Help > Update... > Manage Update Sites`.
+2. Enable `3DObjectsCounterPlus`, or add it as an unlisted site with URL
+   `https://sites.imagej.net/3DObjectsCounterPlus/`.
+3. Apply changes and restart Fiji.
+4. Run `Analyze > 3D Objects Counter+`.
+
 Manual install:
 
 1. Build or download `3D_Objects_Counter_Plus-<version>.jar`.
 2. Copy it into Fiji's `plugins/` folder.
 3. Restart Fiji.
 4. Run `Analyze > 3D Objects Counter+`.
-
-When the update site is published, it will be installable from
-`Help > Update... > Manage Update Sites` by enabling `3DObjectsCounterPlus`.
 
 ## Use
 
@@ -239,8 +244,7 @@ The deployable artifact is
 ## Citing 3D Objects Counter+
 
 If you use this plugin in published work, please cite it. Citation metadata is
-in [CITATION.cff](CITATION.cff). A Zenodo DOI will be added once the first
-tagged release is archived.
+in [CITATION.cff](CITATION.cff).
 
 When publishing results that use this plugin, please also cite the upstream
 tools it builds on:
