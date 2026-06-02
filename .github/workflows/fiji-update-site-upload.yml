@@ -162,10 +162,12 @@ jobs:
       - name: Configure update site metadata
         shell: bash
         run: |
-          # Enable the 3D ImageJ Suite site so 0.1.1's dependencies (mcib3d-core,
-          # Colocalization_Image_Creator) are attributable; otherwise the updater
-          # reports them as obsolete/local-only and the upload conflicts.
+          # Enable the dependency update sites so 0.1.1's auto-detected dependencies are
+          # attributable: mcib3d-core on "3D ImageJ Suite", and Colocalization_Image_Creator
+          # on "3D Object Colocalisation". Without these the updater reports them as
+          # obsolete/local-only and the live upload aborts (exit 1).
           "$FIJI_LAUNCHER" --update add-update-site "3D ImageJ Suite" "https://sites.imagej.net/Tboudier/"
+          "$FIJI_LAUNCHER" --update add-update-site "3D Object Colocalisation" "https://sites.imagej.net/ObjectColocalizationPlugins/"
           "$FIJI_LAUNCHER" --update edit-update-site "$IMAGEJ_UPDATE_SITE_NAME" "$IMAGEJ_UPDATE_SITE_URL" "webdav:$IMAGEJ_UPLOAD_USER:$IMAGEJ_UPLOAD_PASSWORD" .
           "$FIJI_LAUNCHER" --update update
 
@@ -197,13 +199,6 @@ jobs:
           fi
           mkdir -p "Fiji.app/$INSTALL_DIR"
           cp "$artifact" "Fiji.app/$INSTALL_DIR/$install_name"
-          # Colocalization_Image_Creator ships bundled with every Fiji and is not on an
-          # uploadable update site, so the updater flags it as an obsolete/local-only
-          # dependency and the live upload aborts (exit 1). Remove it so it becomes a
-          # "missing" dependency that --forget-missing-dependencies drops; real users still
-          # have it from Fiji core. mcib3d-core (the dependency that matters) stays resolved
-          # via the 3D ImageJ Suite site enabled above.
-          rm -f Fiji.app/plugins/Colocalization_Image_Creator*.jar
           echo "RELATIVE_TARGET=$INSTALL_DIR/$install_name" >> "$GITHUB_ENV"
           find Fiji.app/plugins Fiji.app/jars Fiji.app/scripts -maxdepth 2 -type f 2>/dev/null | sort
 
