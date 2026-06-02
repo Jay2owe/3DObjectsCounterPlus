@@ -642,10 +642,12 @@ public final class OC3DPlusRunner {
                 values.surfaceArea = src.surfaceArea;
             }
             if (context.needs(FEATURE_SPHERICITY)) {
-                values.sphericity = sphericity(src.voxelCount, src.surfaceArea);
+                // Corrected-sphericity convention: pixel-unit volume + Lindblad corrected
+                // pixel surface (both raw), so a digitized sphere approaches 1.0.
+                values.sphericity = sphericity(src.voxelCount, src.correctedSurfacePixels);
             }
             if (context.needs(FEATURE_COMPACTNESS)) {
-                values.compactness = compactness(src.voxelCount, src.surfaceArea);
+                values.compactness = compactness(src.voxelCount, src.correctedSurfacePixels);
             }
             if (context.needs(FEATURE_MEAN_INTENSITY)) {
                 values.meanIntensity = src.meanIntensity();
@@ -814,6 +816,9 @@ public final class OC3DPlusRunner {
         return row + 1;
     }
 
+    // Wadell sphericity = (36*pi)^(1/3) * V^(2/3) / S, written as pi^(1/3)*(6V)^(2/3)/S.
+    // Matches mcib3d compactness^(1/3); with the Lindblad corrected pixel surface a
+    // digitized sphere -> 1.0.
     private static double sphericity(double volume, double surfaceArea) {
         if (volume <= 0.0 || surfaceArea <= 0.0) return Double.NaN;
         return Math.pow(Math.PI, 1.0 / 3.0)
@@ -821,10 +826,12 @@ public final class OC3DPlusRunner {
                 / surfaceArea;
     }
 
+    // mcib3d compactness = (36*pi*V^2) / S^3 (== sphericity^3), so a sphere -> 1.0 and
+    // less-round objects fall below 1. (Reciprocal of the older S^3/(36*pi*V^2) form.)
     private static double compactness(double volume, double surfaceArea) {
         if (volume <= 0.0 || surfaceArea <= 0.0) return Double.NaN;
-        return (surfaceArea * surfaceArea * surfaceArea)
-                / (36.0 * Math.PI * volume * volume);
+        return (36.0 * Math.PI * volume * volume)
+                / (surfaceArea * surfaceArea * surfaceArea);
     }
 
     private static void setFinite(ResultsTable table, String column, int row, double value) {

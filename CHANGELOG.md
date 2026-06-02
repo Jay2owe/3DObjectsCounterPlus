@@ -2,6 +2,22 @@
 
 All notable changes to 3D Objects Counter+ are documented here.
 
+## [0.1.1] - 2026-06-02
+
+### Changed
+
+- Sphericity and compactness now use the Lindblad (2005) weighted-configuration
+  corrected surface area, matching the mcib3d 3D Suite convention, so a digitized
+  sphere reads near 1.0 (previously a raw exposed-voxel-face surface put a perfect
+  sphere near 0.64). Compactness is now `36*pi*V^2 / S^3` (= sphericity^3, sphere -> 1).
+  The reported `Surface (unit^2)` column is unchanged (calibrated contact surface).
+
+### Fixed
+
+- Corrected sphericity/compactness were computed by mixing raw voxel-count volume
+  with calibrated surface area; both inputs are now consistent pixel units, so the
+  values are correct for anisotropic calibrations.
+
 ## [0.1.0] - 2026-05-17
 
 ### Added

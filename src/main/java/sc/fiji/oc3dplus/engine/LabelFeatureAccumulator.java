@@ -136,35 +136,63 @@ final class LabelFeatureAccumulator {
                     int label = labelFromPixel(current.getf(index));
                     if (label <= 0) continue;
 
+                    boolean xMinus = x == 0 || labelAt(current, index - 1) != label;
+                    boolean xPlus = x == width - 1 || labelAt(current, index + 1) != label;
+                    boolean yMinus = y == 0 || labelAt(current, index - width) != label;
+                    boolean yPlus = y == height - 1 || labelAt(current, index + width) != label;
+                    boolean zMinus = z == 0 || labelAt(previous, index) != label;
+                    boolean zPlus = z == depth - 1 || labelAt(next, index) != label;
+
                     double exposedArea = 0.0;
-                    if (x == 0 || labelAt(current, index - 1) != label) {
-                        exposedArea += scales.yzFaceArea;
-                    }
-                    if (x == width - 1 || labelAt(current, index + 1) != label) {
-                        exposedArea += scales.yzFaceArea;
-                    }
-                    if (y == 0 || labelAt(current, index - width) != label) {
-                        exposedArea += scales.xzFaceArea;
-                    }
-                    if (y == height - 1 || labelAt(current, index + width) != label) {
-                        exposedArea += scales.xzFaceArea;
-                    }
-                    if (z == 0 || labelAt(previous, index) != label) {
-                        exposedArea += scales.xyFaceArea;
-                    }
-                    if (z == depth - 1 || labelAt(next, index) != label) {
-                        exposedArea += scales.xyFaceArea;
-                    }
+                    if (xMinus) exposedArea += scales.yzFaceArea;
+                    if (xPlus) exposedArea += scales.yzFaceArea;
+                    if (yMinus) exposedArea += scales.xzFaceArea;
+                    if (yPlus) exposedArea += scales.xzFaceArea;
+                    if (zMinus) exposedArea += scales.xyFaceArea;
+                    if (zPlus) exposedArea += scales.xyFaceArea;
 
                     if (exposedArea > 0.0) {
                         FeatureValues values = valuesByLabel.get(label);
                         if (values != null) {
                             values.surfaceVoxelCount++;
                             values.surfaceArea += exposedArea;
+                            values.correctedSurfacePixels += correctedSurfaceWeight(
+                                    xMinus, xPlus, yMinus, yPlus, zMinus, zPlus);
                         }
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Per-surface-voxel area weight from Lindblad (2005), "Surface area estimation
+     * of digitized 3D objects using weighted local configurations". Reproduces
+     * mcib3d-core {@code Object3DVoxels.computeContours()} corrected surface exactly:
+     * voxels are classified by exposed-face count (1-6), with the 3-face case split
+     * by whether an opposite pair of faces is exposed. The weights are in cubic-voxel
+     * (pixel) units and deliberately ignore anisotropic calibration, matching mcib3d's
+     * corrected sphericity/compactness. A voxel with all 6 faces exposed (an isolated
+     * single voxel) contributes nothing, exactly as mcib3d does.
+     */
+    private static double correctedSurfaceWeight(boolean xMinus, boolean xPlus,
+                                                 boolean yMinus, boolean yPlus,
+                                                 boolean zMinus, boolean zPlus) {
+        int face = 0;
+        if (xMinus) face++;
+        if (xPlus) face++;
+        if (yMinus) face++;
+        if (yPlus) face++;
+        if (zMinus) face++;
+        if (zPlus) face++;
+        boolean oppositePair = (xMinus && xPlus) || (yMinus && yPlus) || (zMinus && zPlus);
+        switch (face) {
+            case 1: return 0.894;
+            case 2: return 1.3409;
+            case 3: return oppositePair ? 2.0 : 1.5879;
+            case 4: return 8.0 / 3.0;
+            case 5: return 10.0 / 3.0;
+            default: return 0.0; // face == 6 isolated voxel contributes nothing, as in mcib3d
         }
     }
 
@@ -358,6 +386,10 @@ final class LabelFeatureAccumulator {
         long surfaceVoxelCount;
         double calibratedVolume;
         double surfaceArea;
+        // Lindblad (2005) weighted-configuration surface in cubic-voxel (pixel) units.
+        // Used for mcib3d-aligned corrected sphericity/compactness, NOT the reported
+        // Surface column (which stays the calibrated contact surface above).
+        double correctedSurfacePixels;
         double intensitySum;
         double intensitySumSquares;
         double intensityMin = Double.POSITIVE_INFINITY;

@@ -20,7 +20,7 @@
 	  Second digit = major rework or large optimization.
 	  Third digit = bug fix or small tweak/optimization.
 	-->
-	<version>0.1.0</version>
+	<version>0.1.1</version>
 
 	<name>3D Objects Counter+</name>
 	<description>Fiji/ImageJ plugin for 3D object counting with morphological filtering: sphericity, compactness, elongation, volume, surface area, Feret diameter, and intensity. Extends the native 3D Objects Counter workflow with shape-based filters and exposes a public Java API plus macro grammar.</description>
