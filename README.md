@@ -258,6 +258,31 @@ tools it builds on:
   (Ollion et al., *Bioinformatics*, 2013,
   doi:10.1093/bioinformatics/btt276).
 
+## Citation
+
+If you use 3D Objects Counter+ in published work, please cite it. The **concept DOI** below
+always resolves to the latest release:
+
+> Malcolm, J. (2026). *3D Objects Counter+: morphology-filterable 3D object counting for Fiji/ImageJ* (Version 0.1.1) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21633365
+
+```bibtex
+@software{malcolm_3dobjectscounterplus_2026,
+  author    = {Malcolm, Jamie},
+  title     = {{3D} {O}bjects {C}ounter+: morphology-filterable {3D} object counting for {F}iji/{I}mage{J}},
+  version   = {0.1.1},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.21633365},
+  url       = {https://doi.org/10.5281/zenodo.21633365}
+}
+```
+
+Where exact reproducibility matters, cite the DOI of the specific version you
+ran instead — v0.1.1 is [`10.5281/zenodo.21633366`](https://doi.org/10.5281/zenodo.21633366).
+
+GitHub's **Cite this repository** button (top right, generated from
+[`CITATION.cff`](CITATION.cff)) produces both APA and BibTeX automatically.
+
 ## License
 
 BSD 3-Clause License. See [LICENSE](LICENSE) for the full text.
