@@ -1,5 +1,7 @@
 # 3D Objects Counter+
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21633365.svg)](https://doi.org/10.5281/zenodo.21633365)
+
 A Fiji/ImageJ plugin for 3D object counting with native-style controls and
 fixed min/max morphology filters.
 
