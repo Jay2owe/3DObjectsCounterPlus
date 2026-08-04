@@ -2,6 +2,30 @@
 
 All notable changes to 3D Objects Counter+ are documented here.
 
+## Unreleased
+
+### Added
+
+- Secondary `Extended measurements...` window with current-run-only settings
+  for XY fractal/lacunarity, RI/SRI/PB/MP/VSD composite indices, and
+  arborization/Sholl measurements.
+- Conditional result columns, Java builder switches, macro flags, and direct
+  filters for all extended numeric measurements.
+- Separate `Analyze > 3D Objects Counter+ Batch...` command. It recursively
+  streams TIFF images and writes an all-images manifest, per-object CSV, and
+  long-form within-batch score CSV.
+- Descriptive population z-scores and empirical midrank percentiles with an
+  explicit morphology-only scoring allowlist.
+
+### Compatibility and safety
+
+- All extended groups remain off by default, preserving the legacy result
+  columns and workflow.
+- No new Maven or runtime dependency was added.
+- Arborization prefers Fiji's installed Skeletonize3D and fails closed if it is
+  unavailable; the independent internal thinner is not used for reported
+  measurements until numerical parity has been certified.
+
 ## [0.1.1] - 2026-06-02
 
 ### Changed

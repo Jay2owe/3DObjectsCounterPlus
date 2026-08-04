@@ -38,6 +38,8 @@ public final class OC3DPlusParameters {
     public final ImagePlus intensityImage;
     /** Non-fatal warning sink. Never null. */
     public final WarningSink warningSink;
+    /** Optional extended measurements. Never null. */
+    public final OC3DPlusMeasurements measurements;
 
     public OC3DPlusParameters(int threshold,
                               int minSize,
@@ -46,6 +48,18 @@ public final class OC3DPlusParameters {
                               List<MorphPredicate> morphPredicates,
                               ImagePlus intensityImage,
                               WarningSink warningSink) {
+        this(threshold, minSize, maxSize, excludeOnEdges, morphPredicates,
+                intensityImage, warningSink, OC3DPlusMeasurements.NONE);
+    }
+
+    public OC3DPlusParameters(int threshold,
+                              int minSize,
+                              int maxSize,
+                              boolean excludeOnEdges,
+                              List<MorphPredicate> morphPredicates,
+                              ImagePlus intensityImage,
+                              WarningSink warningSink,
+                              OC3DPlusMeasurements measurements) {
         this.threshold = threshold;
         this.minSize = Math.max(0, minSize);
         this.maxSize = Math.max(this.minSize, maxSize);
@@ -53,6 +67,7 @@ public final class OC3DPlusParameters {
         this.morphPredicates = immutableCopy(morphPredicates);
         this.intensityImage = intensityImage;
         this.warningSink = warningSink == null ? NO_OP_WARNING_SINK : warningSink;
+        this.measurements = measurements == null ? OC3DPlusMeasurements.NONE : measurements;
     }
 
     private static List<MorphPredicate> immutableCopy(List<MorphPredicate> source) {

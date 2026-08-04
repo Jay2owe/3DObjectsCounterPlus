@@ -70,6 +70,22 @@ public final class OC3DPlusDialogModel {
             copy.maxText = maxText;
             return copy;
         }
+
+        boolean accepts(String minimumText, String maximumText) {
+            try {
+                double minimum = parseRangeBound(
+                        minimumText, label + " minimum");
+                double maximum = parseRangeBound(
+                        maximumText, label + " maximum");
+                return minimum != Double.POSITIVE_INFINITY
+                        && maximum != Double.NEGATIVE_INFINITY
+                        && minimum <= maximum
+                        && minimum >= hardMin
+                        && maximum <= hardMax;
+            } catch (IllegalArgumentException invalid) {
+                return false;
+            }
+        }
     }
 
     public int threshold = 128;
@@ -83,13 +99,21 @@ public final class OC3DPlusDialogModel {
     public boolean showCentersOfMass = true;
     public boolean showStats = true;
     public boolean showSummary = true;
+    public boolean measureFractalXY = false;
+    public boolean measureComposites = false;
+    public boolean measureArborization = false;
     /** Empty string = no redirect. */
     public String redirectTitle = "";
     private final List<FeatureRange> featureRanges = defaultFeatureRanges();
+    private final List<FeatureRange> extendedFeatureRanges = defaultExtendedFeatureRanges();
     private final List<FilterRow> filters = new ArrayList<FilterRow>();
 
     public List<FeatureRange> featureRanges() {
         return featureRanges;
+    }
+
+    public List<FeatureRange> extendedFeatureRanges() {
+        return extendedFeatureRanges;
     }
 
     public void configureForImage(ImagePlus image) {
@@ -124,6 +148,10 @@ public final class OC3DPlusDialogModel {
                 out.add(new MorphPredicate(range.feature, MorphPredicate.Operator.LE, max));
             }
         }
+        for (FeatureRange range : extendedFeatureRanges) {
+            if (range == null || !isExtendedFamilyEnabled(range.feature)) continue;
+            addChangedRangePredicates(out, range);
+        }
         for (FilterRow row : filters) {
             if (row == null || !row.enabled) continue;
             out.add(new MorphPredicate(row.feature, operatorFrom(row.operator), row.value));
@@ -148,7 +176,13 @@ public final class OC3DPlusDialogModel {
                     + "(redirectTitle='" + redirectTitle + "'). "
                     + "Rename the image and try again.");
         }
-        for (FeatureRange range : featureRanges) {
+        List<FeatureRange> allRanges = new ArrayList<FeatureRange>(featureRanges);
+        for (FeatureRange range : extendedFeatureRanges) {
+            if (range != null && isExtendedFamilyEnabled(range.feature)) {
+                allRanges.add(range);
+            }
+        }
+        for (FeatureRange range : allRanges) {
             if (range == null) continue;
             try {
                 double min = parseRangeBound(range.minText, range.label + " minimum");
@@ -202,6 +236,9 @@ public final class OC3DPlusDialogModel {
                 .minSize(minSize)
                 .maxSize(maxSize)
                 .excludeOnEdges(excludeOnEdges)
+                .measureFractalXY(measureFractalXY)
+                .measureCompositeIndices(measureComposites)
+                .measureArborization(measureArborization)
                 .intensityImage(intensityImage)
                 .warningSink(warningSink);
         for (MorphPredicate predicate : enabledPredicates()) {
@@ -221,6 +258,9 @@ public final class OC3DPlusDialogModel {
         sb.append(" min=").append(minSize);
         sb.append(" max=").append(maxSize == Integer.MAX_VALUE ? "Infinity" : Integer.toString(maxSize));
         if (excludeOnEdges) sb.append(" exclude_edges");
+        if (measureFractalXY) sb.append(" measure_fractal_xy");
+        if (measureComposites) sb.append(" measure_composites");
+        if (measureArborization) sb.append(" measure_arborization");
         if (redirectTitle != null && !redirectTitle.isEmpty()) {
             sb.append(" redirect=[")
                     .append(MacroOptionsParser.requireSafeBracketedValue(
@@ -252,10 +292,17 @@ public final class OC3DPlusDialogModel {
         this.showCentersOfMass = other.showCentersOfMass;
         this.showStats = other.showStats;
         this.showSummary = other.showSummary;
+        this.measureFractalXY = other.measureFractalXY;
+        this.measureComposites = other.measureComposites;
+        this.measureArborization = other.measureArborization;
         this.redirectTitle = other.redirectTitle == null ? "" : other.redirectTitle;
         this.featureRanges.clear();
         for (FeatureRange range : other.featureRanges) {
             this.featureRanges.add(range.copy());
+        }
+        this.extendedFeatureRanges.clear();
+        for (FeatureRange range : other.extendedFeatureRanges) {
+            this.extendedFeatureRanges.add(range.copy());
         }
         this.filters.clear();
         for (FilterRow row : other.filters) {
@@ -267,6 +314,18 @@ public final class OC3DPlusDialogModel {
         OC3DPlusDialogModel copy = new OC3DPlusDialogModel();
         copy.copyFrom(this);
         return copy;
+    }
+
+    /** Apply only settings owned by the secondary extended-measurements dialog. */
+    public void copyExtendedSettingsFrom(OC3DPlusDialogModel other) {
+        if (other == null) return;
+        measureFractalXY = other.measureFractalXY;
+        measureComposites = other.measureComposites;
+        measureArborization = other.measureArborization;
+        extendedFeatureRanges.clear();
+        for (FeatureRange range : other.extendedFeatureRanges) {
+            extendedFeatureRanges.add(range.copy());
+        }
     }
 
     static boolean isOperator(String symbol) {
@@ -297,6 +356,20 @@ public final class OC3DPlusDialogModel {
 
     public static List<String> operatorOptions() {
         return Collections.unmodifiableList(java.util.Arrays.asList(">=", "<=", ">", "<"));
+    }
+
+    public String extendedMeasurementsSummary() {
+        List<String> names = new ArrayList<String>();
+        if (measureFractalXY) names.add("Fractal XY");
+        if (measureComposites) names.add("Composite indices");
+        if (measureArborization) names.add("Arborization");
+        if (names.isEmpty()) return "Off";
+        StringBuilder summary = new StringBuilder();
+        for (int i = 0; i < names.size(); i++) {
+            if (i > 0) summary.append(", ");
+            summary.append(names.get(i));
+        }
+        return summary.toString();
     }
 
     static double parseRangeBound(String text, String fieldName) {
@@ -353,6 +426,64 @@ public final class OC3DPlusDialogModel {
         ranges.add(new FeatureRange("feret_diameter_max", "Max Feret diameter", "0", "Infinity",
                 0, Double.POSITIVE_INFINITY));
         return ranges;
+    }
+
+    private static List<FeatureRange> defaultExtendedFeatureRanges() {
+        List<FeatureRange> ranges = new ArrayList<FeatureRange>();
+        ranges.add(new FeatureRange("fractal_dim_xy", "Fractal dimension (XY)",
+                "-Infinity", "Infinity", Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("fractal_r2_xy", "Fractal fit R2 (XY)",
+                "0", "1", 0, 1));
+        ranges.add(new FeatureRange("lacunarity_mean_xy", "Mean lacunarity (XY)",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("lacunarity_spread_xy", "Lacunarity spread (XY)",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("ri", "Ramification index (RI)",
+                "1", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("sri", "Surface roughness index (SRI)",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("pb", "Process burden (PB)",
+                "-Infinity", "Infinity", Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("mp", "Morphology polarity (MP)",
+                "-Infinity", "Infinity", Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("vsd", "Volume-span discrepancy (VSD)",
+                "-Infinity", "Infinity", Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("sholl_critical_radius_um", "Sholl critical radius (um)",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("sholl_critical_intersections", "Sholl critical intersections",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("sholl_schoenen_index", "Sholl Schoenen index",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("sholl_primary_branches", "Sholl primary branches",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("skeleton_branches", "Skeleton branches",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("skeleton_junctions", "Skeleton junctions",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("skeleton_endpoints", "Skeleton endpoints",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        ranges.add(new FeatureRange("skeleton_voxels", "Skeleton voxels",
+                "0", "Infinity", 0, Double.POSITIVE_INFINITY));
+        return ranges;
+    }
+
+    private boolean isExtendedFamilyEnabled(String feature) {
+        return measureFractalXY && sc.fiji.oc3dplus.api.ExtendedFeatureCatalog.isFractalFeature(feature)
+                || measureComposites && sc.fiji.oc3dplus.api.ExtendedFeatureCatalog.isCompositeFeature(feature)
+                || measureArborization && sc.fiji.oc3dplus.api.ExtendedFeatureCatalog.isArborizationFeature(feature);
+    }
+
+    private static void addChangedRangePredicates(List<MorphPredicate> out, FeatureRange range) {
+        double min = parseRangeBound(range.minText, range.label + " minimum");
+        double max = parseRangeBound(range.maxText, range.label + " maximum");
+        double defaultMin = parseRangeBound(range.minDefault, range.label + " default minimum");
+        double defaultMax = parseRangeBound(range.maxDefault, range.label + " default maximum");
+        if (Double.isFinite(min) && Double.compare(min, defaultMin) != 0) {
+            out.add(new MorphPredicate(range.feature, MorphPredicate.Operator.GE, min));
+        }
+        if (Double.isFinite(max) && Double.compare(max, defaultMax) != 0) {
+            out.add(new MorphPredicate(range.feature, MorphPredicate.Operator.LE, max));
+        }
     }
 
     static String calibratedVolumeUnit(ImagePlus image) {

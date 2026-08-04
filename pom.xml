@@ -20,20 +20,29 @@
 	  Second digit = major rework or large optimization.
 	  Third digit = bug fix or small tweak/optimization.
 	-->
-	<version>0.1.1</version>
+	<version>0.2.0-SNAPSHOT</version>
 
 	<name>3D Objects Counter+</name>
-	<description>Fiji/ImageJ plugin for 3D object counting with morphological filtering: sphericity, compactness, elongation, volume, surface area, Feret diameter, and intensity. Extends the native 3D Objects Counter workflow with shape-based filters and exposes a public Java API plus macro grammar.</description>
+	<description>Fiji/ImageJ plugin for 3D object counting with morphology filters, optional XY fractal, composite-shape, arborization and Sholl measurements, plus recursive folder batch analysis and within-batch descriptive scoring.</description>
 	<url>https://github.com/Jay2owe/3DObjectsCounterPlus</url>
 	<inceptionYear>2026</inceptionYear>
 	<organization>
 		<name>UK Dementia Research Institute at Imperial College London</name>
 		<url>https://ukdri.ac.uk/centres/imperial</url>
 	</organization>
+	<!--
+	  The licence of the combined distributed work, which is what this element
+	  declares. Jamie Malcolm's own source in this repository is BSD-3-Clause
+	  (see LICENSE.BSD-3-Clause), but the plugin links GPLv3+ libraries -
+	  sc.fiji:3D_Objects_Counter and org.framagit.mcib3d:mcib3d-core - and
+	  cannot run without them, so the artifact that is distributed and run is
+	  GPL-3.0-or-later. `provided` scope is a build-time concern and does not
+	  change that. See LICENSING.md.
+	-->
 	<licenses>
 		<license>
-			<name>BSD 3-Clause License</name>
-			<url>https://opensource.org/licenses/BSD-3-Clause</url>
+			<name>GNU General Public License v3.0 or later</name>
+			<url>https://www.gnu.org/licenses/gpl-3.0.html</url>
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
@@ -92,6 +101,14 @@
 
 	<properties>
 		<main-class>sc.fiji.oc3dplus.ObjectsCounter3DPlus</main-class>
+		<!--
+		  Deliberately still bsd_3: this drives the per-file headers that
+		  license-maven-plugin would stamp on *this repository's own source*,
+		  which is BSD-3-Clause. It is not the licence of the combined
+		  distributed work - that is declared in <licenses> above as
+		  GPL-3.0-or-later. Changing this to gpl_v3 would relicense Jamie's own
+		  code, which is a separate decision. See LICENSING.md.
+		-->
 		<license.licenseName>bsd_3</license.licenseName>
 		<license.copyrightOwners>Jamie Malcolm</license.copyrightOwners>
 	</properties>

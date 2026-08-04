@@ -19,6 +19,10 @@ threshold, size-filter, map, statistics, and macro workflow.
 - Object, surface, centroid, and center-of-mass maps with numbered labels.
 - Per-object statistics, native-style summary logging, and progress feedback.
 - Macro-recordable command options and a small Java API for batch workflows.
+- Optional XY fractal/lacunarity, composite shape, and arborization measurements
+  behind one `Extended measurements...` button.
+- A separate recursive folder batch command with manifest, object, and
+  within-batch score CSV files.
 
 ## Install
 
@@ -31,8 +35,7 @@ Requirements:
 Update-site install:
 
 1. In Fiji, choose `Help > Update... > Manage Update Sites`.
-2. Enable `3DObjectsCounterPlus`, or add it as an unlisted site with URL
-   `https://sites.imagej.net/3DObjectsCounterPlus/`.
+2. Tick `3D Objects Counter+` in the list.
 3. Apply changes and restart Fiji.
 4. Run `Analyze > 3D Objects Counter+`.
 
@@ -71,6 +74,117 @@ Filters are fixed min/max ranges. Defaults do not remove objects:
 `Preview` runs object counting and keeps the dialog open. `OK` runs object
 counting, creates the selected outputs, and closes the dialog. The progress
 bar updates while the full stack is being labelled, measured, and mapped.
+
+`Extended measurements...` opens a second window. All three groups are off by
+default, so existing runs keep the same columns and speed:
+
+- `Fractal complexity (XY projection)` measures the union of the object across
+  z; it is deliberately not a native 3D box count.
+- `Composite shape indices` adds RI, SRI, PB, MP, and VSD.
+- `Arborization and Sholl measurements` adds skeleton graph and calibrated
+  5 µm Sholl measurements. It uses Fiji's installed Skeletonize3D. If that
+  backend is unavailable, values are reported as unavailable rather than
+  silently using an unverified substitute.
+
+Enabled groups append these exact result columns:
+
+- Fractal complexity: `Morph_FractalDim_XY`,
+  `Morph_FractalDim_XY_R2`, `Morph_LacunarityMean_XY`, and
+  `Morph_LacunaritySpread_XY`.
+- Composite indices: `Morph_RI`, `Morph_SRI`, `Morph_PB`, `Morph_MP`, and
+  `Morph_VSD`.
+- Arborization: `Morph_ShollCriticalRadius_um`,
+  `Morph_ShollCriticalIntersections`, `Morph_ShollSchoenenIndex`,
+  `Morph_ShollPrimaryBranches`, `Morph_SkeletonBranches`,
+  `Morph_SkeletonJunctions`, `Morph_SkeletonEndpoints`,
+  `Morph_SkeletonVoxels`, and `Morph_ArborizationBackend`.
+
+The second window also contains min/max filters for these measurements.
+Only the selected group's rows are shown. `Cancel`, the window close button,
+or Escape discards edits; `Use Settings` applies them to the current run.
+
+The XY fractal calculation uses box sizes 1, 2, 4, 8, 16, 32, and 64 pixels.
+It requires projected bounds of at least 8 by 8 pixels, at least 32 foreground
+pixels, four valid scales, and a fit R2 of at least 0.9. R2 remains visible as
+quality information when the fit is poor, but the fractal dimension and
+lacunarity values are reported as unavailable (`NaN`).
+
+The composite definitions are:
+
+- `RI = 1 / sphericity` (a geometric restatement, not independent information).
+- `SRI = SD(centroid-to-surface distance) / mean distance`.
+- `PB = 1 - spareness`.
+- `MP = (elongation - 1) / ((elongation - 1) + (flatness - 1))`.
+- `VSD = log10(Feret diameter^3 / volume)`.
+
+MP is unavailable for spheres and near-spheres when its denominator is within
+`1e-9` of zero. Composite values are unavailable for objects smaller than the
+fixed reliability floor of 8 voxels or when a prerequisite falls outside its
+physical domain; this adds no setting or user input. These indices describe
+geometry; they do not by themselves measure activation, disease, or biological
+function. Sholl shells are centred on the object centroid and use a fixed 5 um
+step.
+
+### Folder batch
+
+Run `Analyze > 3D Objects Counter+ Batch...` and choose one folder. TIFF files
+in that folder and its subfolders are found automatically. The first readable
+image opens with the familiar settings dialog; batch mode does not ask for
+control groups, metadata, output names, or per-image settings.
+
+Images are processed one at a time. Outputs are written beneath:
+
+```text
+<input folder>/3D Objects Counter Plus Batch/<batch id>/
+```
+
+- `batch_manifest.csv` lists every discovered image, including failures and
+  images with zero objects, plus the exact macro settings and calibration.
+- `batch_objects.csv` contains one row per object with its source image path.
+- `batch_scores.csv` contains long-form within-batch population z-scores and
+  empirical midrank percentiles. Scoring needs at least three finite values;
+  constant features have no z-score and a percentile of 50.
+
+The CSV schemas are:
+
+- `batch_manifest.csv`: `BatchRunId`, `SourceRelativePath`,
+  `SourceLastModified` (epoch milliseconds), `Status`, `Error` (including
+  non-fatal warnings), `ObjectCount`, `ContributedScoreRows`, `PixelWidth`,
+  `PixelHeight`, `PixelDepth`, `SpatialUnit`, `MacroOptions`,
+  `FractalXYEnabled`, `CompositesEnabled`, `ArborizationEnabled`,
+  `ArborizationBackend`, and `PluginVersion`.
+- `batch_objects.csv`: `BatchRunId`, `SourceRelativePath`,
+  `SourceImageIndex`, `SourceObjectLabel`, followed by the normal per-object
+  ResultsTable columns in their existing order.
+- `batch_scores.csv`: `BatchRunId`, `SourceRelativePath`,
+  `SourceImageIndex`, `SourceObjectLabel`, `Feature`, `RawValue`, `RawUnit`,
+  `ScoringValue`, `ScoringUnit`, `WithinBatchZ`,
+  `WithinBatchPercentile`, `ValidN`, `ReferenceMean`, `ReferenceSD`, and
+  `ReferenceScope`.
+
+For each feature, the reference population is every finite, unit-compatible
+object value from all successfully processed images in that run. Every score
+row states the exact scope as
+`all successful objects in this BatchRunId`. Changing which images are in the
+batch changes the batch ID, reference mean, standard deviation, percentiles,
+and z-scores by design; the manifest records exactly which images were used.
+
+These scores describe an object's position within the current batch. Objects
+from the same image or biological sample are not automatically independent
+replicates, and these scores are not inferential statistics or evidence of a
+biological difference.
+
+`ContributedScoreRows` is the number of long-form rows from that image written
+to `batch_scores.csv`, including rows whose score is `NaN`.
+
+Coordinates, labels, strings, intensity values, and fractal fit R2 are not
+scored. Volume, surface, and Feret values are converted to common
+micrometre-based units for scoring when the image unit is known. The score CSV
+records both the raw and scoring units. With absent or incompatible units, raw
+values are retained while that feature's scores are written as `NaN` across
+the whole batch and the manifest records why.
+Cancelling leaves an `.incomplete` marker and temporary files instead of
+presenting partial data as completed CSV output.
 
 ### Measurement Redirect
 
@@ -117,6 +231,9 @@ Macro options:
 | `max=<int>` | Maximum object size in voxels. | `Infinity` |
 | `max=Infinity` or `max=inf` | No upper size limit. | `Infinity` |
 | `exclude_edges` | Exclude objects touching image borders. | Off |
+| `measure_fractal_xy` | Add XY-projection fractal and lacunarity columns. | Off |
+| `measure_composites` | Add RI, SRI, PB, MP, and VSD columns. | Off |
+| `measure_arborization` | Add skeleton graph and calibrated Sholl columns. | Off |
 | `redirect=[image title]` | Measure intensity and center of mass from another open image. | None |
 | `<feature><op><value>` | Morphology/intensity filter, for example `sphericity>=0.6`. | None |
 | `hide_labels` | Do not show the object label map. | Show |
@@ -146,6 +263,13 @@ Supported filter features and example macro tokens:
 | `mean_intensity` | Mean intensity from the source or redirect image. | `mean_intensity>=500` |
 | `max_intensity` | Maximum intensity from the source or redirect image. | `max_intensity<65535` |
 | `feret_diameter_max` | Maximum 3D Feret diameter in calibrated spatial units. | `feret_diameter_max>=5` |
+
+Extended filter names are `fractal_dim_xy`, `fractal_r2_xy`,
+`lacunarity_mean_xy`, `lacunarity_spread_xy`, `ri`, `sri`, `pb`, `mp`, `vsd`,
+`sholl_critical_radius_um`, `sholl_critical_intersections`,
+`sholl_schoenen_index`, `sholl_primary_branches`, `skeleton_branches`,
+`skeleton_junctions`, `skeleton_endpoints`, and `skeleton_voxels`. Referencing
+one in a macro filter automatically enables its measurement group.
 
 For example, this keeps objects that pass all three filters:
 
@@ -177,6 +301,8 @@ line breaks in image titles used in macro options.
 OC3DPlusParameters params = OC3DPlus.builder()
     .threshold(128)
     .minSize(20)
+    .measureFractalXY(true)
+    .measureCompositeIndices(true)
     .addFilter("sphericity", ">=", 0.6)
     .build();
 
@@ -218,6 +344,10 @@ Result tables:
   morphology means. If measurement redirect is active, the line starts with
   `<detection image> redirect to <measurement image>`.
 
+Enabled extended groups append only their own `Morph_*` columns. Arborization
+also appends `Morph_ArborizationBackend`, so each object records whether the
+standard Fiji backend was used or the measurement was unavailable.
+
 ### Filtered Processing Notes
 
 For standard single-channel 8-bit or 16-bit stacks, filtered runs use classic
@@ -258,7 +388,15 @@ tools it builds on:
 
 ## License
 
-BSD 3-Clause License. See [LICENSE](LICENSE) for the full text.
+The plugin as distributed is **GPL-3.0-or-later**. See [LICENSE](LICENSE) for
+the full text.
+
+The original source in this repository is BSD-3-Clause
+([LICENSE.BSD-3-Clause](LICENSE.BSD-3-Clause)). The combined work is GPL because
+the plugin links GPLv3+ libraries it cannot run without — the native
+[3D Objects Counter](https://github.com/fiji/3D_Objects_Counter) and
+[mcib3d-core](https://framagit.org/mcib3d/mcib3d-core). [LICENSING.md](LICENSING.md)
+explains what that means for reuse.
 
 ## Acknowledgements
 
@@ -275,3 +413,11 @@ Built on the [Fiji](https://fiji.sc/) / [ImageJ](https://imagej.net/)
 ecosystem, Fabrice Cordelieres's
 [3D Objects Counter](https://github.com/fiji/3D_Objects_Counter), and Thomas
 Boudier's [mcib3d-core](https://framagit.org/mcib3d/mcib3d-core).
+## Parallel execution
+
+`OC3DPlus.countAll` bounds its image-worker pool to the number of inputs and cancels outstanding work
+if a worker fails. Fractal measurements for independent objects also run in deterministic indexed
+workers for single-image analysis. Arborization remains serial because third-party skeletonizer
+reentrancy is not guaranteed, and inner feature workers are disabled during an outer multi-image run
+to prevent nested oversubscription. Set the JVM system property `oc3dplus.parallelism` to a positive
+integer to override the single-image feature-worker cap, or to `1` for the serial reference path.

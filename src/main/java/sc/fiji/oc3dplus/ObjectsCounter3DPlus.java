@@ -100,6 +100,9 @@ public class ObjectsCounter3DPlus implements PlugIn {
                 .minSize(parsed.minSize)
                 .maxSize(parsed.maxSize)
                 .excludeOnEdges(parsed.excludeOnEdges)
+                .measureFractalXY(parsed.measureFractalXY)
+                .measureCompositeIndices(parsed.measureComposites)
+                .measureArborization(parsed.measureArborization)
                 .intensityImage(redirect)
                 .warningSink(new OC3DPlusParameters.WarningSink() {
                     @Override public void warn(String message) {
@@ -210,6 +213,9 @@ public class ObjectsCounter3DPlus implements PlugIn {
         Recorder.recordOption("max",
                 parsed.maxSize == Integer.MAX_VALUE ? "Infinity" : String.valueOf(parsed.maxSize));
         if (parsed.excludeOnEdges) Recorder.recordOption("exclude_edges");
+        if (parsed.measureFractalXY) Recorder.recordOption("measure_fractal_xy");
+        if (parsed.measureComposites) Recorder.recordOption("measure_composites");
+        if (parsed.measureArborization) Recorder.recordOption("measure_arborization");
         if (parsed.redirectTitle != null && !parsed.redirectTitle.isEmpty()) {
             Recorder.recordOption("redirect", "[" + parsed.redirectTitle + "]");
         }

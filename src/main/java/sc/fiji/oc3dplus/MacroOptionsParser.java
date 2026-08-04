@@ -46,7 +46,24 @@ public final class MacroOptionsParser {
             "compactness",
             "sphericity",
             "elongation",
-            "volume"
+            "volume",
+            "fractal_dim_xy",
+            "fractal_r2_xy",
+            "lacunarity_mean_xy",
+            "lacunarity_spread_xy",
+            "sholl_critical_radius_um",
+            "sholl_critical_intersections",
+            "sholl_schoenen_index",
+            "sholl_primary_branches",
+            "skeleton_branches",
+            "skeleton_junctions",
+            "skeleton_endpoints",
+            "skeleton_voxels",
+            "ri",
+            "sri",
+            "pb",
+            "mp",
+            "vsd"
     };
 
     public static final class Parsed {
@@ -60,6 +77,9 @@ public final class MacroOptionsParser {
         public final boolean showCentersOfMass;
         public final boolean showStats;
         public final boolean showSummary;
+        public final boolean measureFractalXY;
+        public final boolean measureComposites;
+        public final boolean measureArborization;
         public final String redirectTitle;
         public final List<MorphPredicate> filters;
 
@@ -73,6 +93,9 @@ public final class MacroOptionsParser {
                boolean showCentersOfMass,
                boolean showStats,
                boolean showSummary,
+               boolean measureFractalXY,
+               boolean measureComposites,
+               boolean measureArborization,
                String redirectTitle,
                List<MorphPredicate> filters) {
             this.threshold = threshold;
@@ -85,6 +108,9 @@ public final class MacroOptionsParser {
             this.showCentersOfMass = showCentersOfMass;
             this.showStats = showStats;
             this.showSummary = showSummary;
+            this.measureFractalXY = measureFractalXY;
+            this.measureComposites = measureComposites;
+            this.measureArborization = measureArborization;
             this.redirectTitle = redirectTitle;
             this.filters = filters == null
                     ? Collections.<MorphPredicate>emptyList()
@@ -106,13 +132,17 @@ public final class MacroOptionsParser {
                 && !hasFlag(opts, "hide_centres_of_mass");
         boolean showStats = !hasFlag(opts, "hide_stats");
         boolean showSummary = !hasFlag(opts, "hide_summary");
+        boolean measureFractalXY = hasFlag(opts, "measure_fractal_xy");
+        boolean measureComposites = hasFlag(opts, "measure_composites");
+        boolean measureArborization = hasFlag(opts, "measure_arborization");
         String redirect = getBracketed(opts, "redirect", null);
 
         List<MorphPredicate> filters = parseDirectPredicates(opts);
 
         return new Parsed(threshold, minSize, maxSize, excludeOnEdges,
                 showLabels, showSurfaces, showCentroids, showCentersOfMass,
-                showStats, showSummary, redirect, filters);
+                showStats, showSummary, measureFractalXY, measureComposites,
+                measureArborization, redirect, filters);
     }
 
     public static String requireSafeBracketedValue(String value, String fieldName) {

@@ -8,7 +8,14 @@ import ij.measure.ResultsTable;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 import sc.fiji.oc3dplus.api.MorphPredicate;
+import sc.fiji.oc3dplus.api.ExtendedFeatureCatalog;
+import sc.fiji.oc3dplus.api.OC3DPlusMeasurements;
 import sc.fiji.oc3dplus.api.OC3DPlusParameters;
+import sc.fiji.oc3dplus.engine.extended.CompositeShapeMeasurements;
+import sc.fiji.oc3dplus.engine.extended.CompositeInputMeasurements;
+import sc.fiji.oc3dplus.engine.extended.FractalXYMeasurements;
+import sc.fiji.oc3dplus.engine.extended.ObjectMask3D;
+import sc.fiji.oc3dplus.engine.extended.arbor.ObjectArborization;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,6 +25,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Engine: run 3D object counting, compute per-object morphology features,
@@ -31,6 +44,19 @@ public final class OC3DPlusRunner {
     public static final String OBJECT_STATS_PROPERTY = "sc.fiji.oc3dplus.objectStats";
     public static final String PREDICATE_COUNTS_PROPERTY = "sc.fiji.oc3dplus.predicateCounts";
     public static final String PREDICATE_LABELS_PROPERTY = "sc.fiji.oc3dplus.predicateLabels";
+
+    private static final ThreadLocal<Boolean> OUTER_PARALLELISM =
+            new ThreadLocal<Boolean>();
+
+    /** Internal run-budget marker used by the public multi-image facade. */
+    public static void enterOuterParallelism() {
+        OUTER_PARALLELISM.set(Boolean.TRUE);
+    }
+
+    /** Clear the run-budget marker after a multi-image worker finishes. */
+    public static void exitOuterParallelism() {
+        OUTER_PARALLELISM.remove();
+    }
 
     public static final class Result {
         private final ResultsTable statistics;
@@ -201,6 +227,30 @@ public final class OC3DPlusRunner {
             FEATURE_MAX_INTENSITY,
             FEATURE_FERET_DIAMETER_MAX));
 
+    private static final String[] FRACTAL_COLUMNS = {
+            "Morph_FractalDim_XY",
+            "Morph_FractalDim_XY_R2",
+            "Morph_LacunarityMean_XY",
+            "Morph_LacunaritySpread_XY"
+    };
+    private static final String[] COMPOSITE_COLUMNS = {
+            "Morph_RI", "Morph_SRI", "Morph_PB", "Morph_MP", "Morph_VSD"
+    };
+    private static final String[] ARBORIZATION_NUMERIC_COLUMNS = {
+            "Morph_ShollCriticalRadius_um",
+            "Morph_ShollCriticalIntersections",
+            "Morph_ShollSchoenenIndex",
+            "Morph_ShollPrimaryBranches",
+            "Morph_SkeletonBranches",
+            "Morph_SkeletonJunctions",
+            "Morph_SkeletonEndpoints",
+            "Morph_SkeletonVoxels"
+    };
+
+    static {
+        SUPPORTED_FEATURES.addAll(ExtendedFeatureCatalog.allFeatureNames());
+    }
+
     public OC3DPlusRunner() {
         this(new DefaultCounterBackend());
     }
@@ -273,6 +323,10 @@ public final class OC3DPlusRunner {
             labelImage.setTitle("3D Objects Counter+ label image");
 
             ResultsTable detectedStats = detected.statistics;
+            if (detectedStats == null || detectedStats.size() == 0) {
+                detectedStats = LabelFeatureAccumulator.emptyStatisticsTable(
+                        labelImage.getCalibration());
+            }
             if (!hasMorphFilters) {
                 progress.step("Measuring morphology");
                 ResultsTable stats = detectedStats == null ? new ResultsTable() : detectedStats;
@@ -280,8 +334,9 @@ public final class OC3DPlusRunner {
                 ImagePlus featureIntensityImage = matchingIntensityImageOrNull(
                         labelImage, safe.intensityImage);
                 FeatureContext featureContext = new FeatureContext(Collections.<MorphPredicate>emptyList(),
-                        featureIntensityImage, safe.warningSink);
+                        featureIntensityImage, safe.measurements, safe.warningSink);
                 Map<Integer, FeatureValues> features = computeFeaturesByLabel(labelImage, featureContext);
+                appendEmptyExtendedColumns(stats, featureContext);
                 appendReferencedMorphColumnsFromFeatures(stats, featureContext, features);
                 if (featureIntensityImage != null) {
                     applyRedirectedIntensityColumns(stats, features);
@@ -298,7 +353,7 @@ public final class OC3DPlusRunner {
             ImagePlus featureIntensityImage = matchingIntensityImageOrNull(
                     labelImage, requestedIntensityImage);
             FeatureContext featureContext = new FeatureContext(predicates,
-                    featureIntensityImage, safe.warningSink);
+                    featureIntensityImage, safe.measurements, safe.warningSink);
             Map<Integer, FeatureValues> features = computeFeaturesByLabel(labelImage, featureContext);
             progress.finishStep();
 
@@ -438,8 +493,9 @@ public final class OC3DPlusRunner {
             return safeStats;
         }
         FeatureContext featureContext = new FeatureContext(predicates,
-                intensityImage, warningSink);
+                intensityImage, OC3DPlusMeasurements.NONE, warningSink);
         Map<Integer, FeatureValues> features = computeFeaturesByLabel(labelImage, featureContext);
+        appendEmptyExtendedColumns(safeStats, featureContext);
         return appendReferencedMorphColumnsToStats(safeStats, featureContext, features);
     }
 
@@ -462,6 +518,38 @@ public final class OC3DPlusRunner {
             }
             for (int row = 0; row < stats.size(); row++) {
                 stats.setValue(column, row, Double.NaN);
+            }
+        }
+    }
+
+    private static void appendEmptyExtendedColumns(ResultsTable stats, FeatureContext context) {
+        if (stats == null || context == null) return;
+        if (context.needsFractal()) appendEmptyColumns(stats, FRACTAL_COLUMNS);
+        if (context.needsComposites()) appendEmptyColumns(stats, COMPOSITE_COLUMNS);
+        if (context.needsArborization()) {
+            appendEmptyColumns(stats, ARBORIZATION_NUMERIC_COLUMNS);
+            if (stats.getColumnIndex("Morph_ArborizationBackend") < 0) {
+                if (stats.size() == 0) {
+                    stats.setHeading(nextHeadingIndex(stats), "Morph_ArborizationBackend");
+                } else {
+                    for (int row = 0; row < stats.size(); row++) {
+                        stats.setValue("Morph_ArborizationBackend", row, "");
+                    }
+                }
+            }
+        }
+    }
+
+    private static void appendEmptyColumns(ResultsTable stats, String[] columns) {
+        for (int i = 0; i < columns.length; i++) {
+            String column = columns[i];
+            if (stats.getColumnIndex(column) >= 0) continue;
+            if (stats.size() == 0) {
+                stats.setHeading(nextHeadingIndex(stats), column);
+            } else {
+                for (int row = 0; row < stats.size(); row++) {
+                    stats.setValue(column, row, Double.NaN);
+                }
             }
         }
     }
@@ -496,6 +584,39 @@ public final class OC3DPlusRunner {
             }
             if (featureContext.needs(FEATURE_MAX_INTENSITY)) {
                 setFinite(safeStats, "Max", row, values.maxIntensity);
+            }
+            if (featureContext.needsFractal()) {
+                setFiniteOrNaN(safeStats, "Morph_FractalDim_XY", row, values.fractalDimensionXY);
+                setFiniteOrNaN(safeStats, "Morph_FractalDim_XY_R2", row, values.fractalR2XY);
+                setFiniteOrNaN(safeStats, "Morph_LacunarityMean_XY", row, values.lacunarityMeanXY);
+                setFiniteOrNaN(safeStats, "Morph_LacunaritySpread_XY", row, values.lacunaritySpreadXY);
+            }
+            if (featureContext.needsComposites()) {
+                setFiniteOrNaN(safeStats, "Morph_RI", row, values.ri);
+                setFiniteOrNaN(safeStats, "Morph_SRI", row, values.sri);
+                setFiniteOrNaN(safeStats, "Morph_PB", row, values.pb);
+                setFiniteOrNaN(safeStats, "Morph_MP", row, values.mp);
+                setFiniteOrNaN(safeStats, "Morph_VSD", row, values.vsd);
+            }
+            if (featureContext.needsArborization()) {
+                setFiniteOrNaN(safeStats, "Morph_ShollCriticalRadius_um", row,
+                        values.shollCriticalRadiusUm);
+                setFiniteOrNaN(safeStats, "Morph_ShollCriticalIntersections", row,
+                        values.shollCriticalIntersections);
+                setFiniteOrNaN(safeStats, "Morph_ShollSchoenenIndex", row,
+                        values.shollSchoenenIndex);
+                setFiniteOrNaN(safeStats, "Morph_ShollPrimaryBranches", row,
+                        values.shollPrimaryBranches);
+                setFiniteOrNaN(safeStats, "Morph_SkeletonBranches", row,
+                        values.skeletonBranches);
+                setFiniteOrNaN(safeStats, "Morph_SkeletonJunctions", row,
+                        values.skeletonJunctions);
+                setFiniteOrNaN(safeStats, "Morph_SkeletonEndpoints", row,
+                        values.skeletonEndpoints);
+                setFiniteOrNaN(safeStats, "Morph_SkeletonVoxels", row,
+                        values.skeletonVoxels);
+                safeStats.setValue("Morph_ArborizationBackend", row,
+                        values.arborizationBackend == null ? "" : values.arborizationBackend);
             }
         }
         return safeStats;
@@ -550,7 +671,9 @@ public final class OC3DPlusRunner {
             boolean useRedirectedIntensityColumns) {
         ResultsTable out = new ResultsTable();
         if (detectedStats == null || oldToNewLabel == null || oldToNewLabel.isEmpty()) {
+            copyHeadings(detectedStats, out);
             appendEmptyMorphologyColumns(out);
+            appendEmptyExtendedColumns(out, featureContext);
             return out;
         }
 
@@ -570,6 +693,7 @@ public final class OC3DPlusRunner {
         }
 
         appendEmptyMorphologyColumns(out);
+        appendEmptyExtendedColumns(out, featureContext);
         Map<Integer, FeatureValues> remappedFeatures = remapFeatures(features, oldToNewLabel);
         ResultsTable withMorphology = appendReferencedMorphColumnsFromFeatures(
                 out,
@@ -579,6 +703,18 @@ public final class OC3DPlusRunner {
             applyRedirectedIntensityColumns(withMorphology, remappedFeatures);
         }
         return withMorphology;
+    }
+
+    private static void copyHeadings(ResultsTable source, ResultsTable destination) {
+        if (source == null || destination == null) return;
+        String[] headings = source.getHeadings();
+        if (headings == null) return;
+        for (int i = 0; i < headings.length; i++) {
+            String heading = headings[i];
+            if (heading != null && !heading.trim().isEmpty()) {
+                destination.setHeading(nextHeadingIndex(destination), heading);
+            }
+        }
     }
 
     private static int rowForLabel(ResultsTable table, int label) {
@@ -619,68 +755,236 @@ public final class OC3DPlusRunner {
                 context.intensityImage,
                 labelImage.getCalibration());
         boolean calibratedVolumeAvailable = Double.isFinite(calibratedVoxelVolume(labelImage));
+        Map<Integer, CompositeInputMeasurements.Inputs> compositeInputs = context.needsComposites()
+                ? CompositeInputMeasurements.measure(labelImage)
+                : Collections.<Integer, CompositeInputMeasurements.Inputs>emptyMap();
 
         Map<Integer, FeatureValues> out = new LinkedHashMap<Integer, FeatureValues>();
         List<Integer> labels = measured.labelsSorted();
-        for (int i = 0; i < labels.size(); i++) {
-            int label = labels.get(i).intValue();
-            LabelFeatureAccumulator.FeatureValues src = measured.valuesForLabel(label);
-            if (src == null) continue;
-            FeatureValues values = new FeatureValues();
+        int workers = featureWorkerCount(labels.size(), labelImage, context);
+        if (workers == 1) {
+            for (Integer boxedLabel : labels) {
+                int label = boxedLabel.intValue();
+                FeatureValues values = computeFeatureForLabel(
+                        labelImage, context, measured, compositeInputs,
+                        calibratedVolumeAvailable, label);
+                if (values != null) out.put(Integer.valueOf(label), values);
+            }
+            return out;
+        }
 
-            if (context.needs(FEATURE_VOLUME)) {
-                values.volume = src.voxelCount;
+        ExecutorService executor = Executors.newFixedThreadPool(workers);
+        List<Future<IndexedFeature>> futures =
+                new ArrayList<Future<IndexedFeature>>(labels.size());
+        try {
+            for (Integer boxedLabel : labels) {
+                final int label = boxedLabel.intValue();
+                futures.add(executor.submit(new Callable<IndexedFeature>() {
+                    @Override
+                    public IndexedFeature call() {
+                        return new IndexedFeature(label, computeFeatureForLabel(
+                                labelImage, context, measured, compositeInputs,
+                                calibratedVolumeAvailable, label));
+                    }
+                }));
             }
-            if (context.needs(FEATURE_VOLUME_CALIBRATED)) {
-                if (calibratedVolumeAvailable) {
-                    values.volumeCalibrated = src.calibratedVolume;
-                } else {
-                    values.markUnavailable(FEATURE_VOLUME_CALIBRATED);
+            for (Future<IndexedFeature> future : futures) {
+                IndexedFeature feature = feature(future, futures);
+                if (feature.values != null) {
+                    out.put(Integer.valueOf(feature.label), feature.values);
                 }
             }
-            if (context.needs(FEATURE_SURFACE_AREA)) {
-                values.surfaceArea = src.surfaceArea;
-            }
-            if (context.needs(FEATURE_SPHERICITY)) {
-                // Corrected-sphericity convention: pixel-unit volume + Lindblad corrected
-                // pixel surface (both raw), so a digitized sphere approaches 1.0.
-                values.sphericity = sphericity(src.voxelCount, src.correctedSurfacePixels);
-            }
-            if (context.needs(FEATURE_COMPACTNESS)) {
-                values.compactness = compactness(src.voxelCount, src.correctedSurfacePixels);
-            }
-            if (context.needs(FEATURE_MEAN_INTENSITY)) {
-                values.meanIntensity = src.meanIntensity();
-                if (!Double.isFinite(values.meanIntensity)) {
-                    values.markUnavailable(FEATURE_MEAN_INTENSITY);
-                }
-            }
-            if (context.needs(FEATURE_MAX_INTENSITY)) {
-                values.maxIntensity = src.maxIntensity();
-                if (!Double.isFinite(values.maxIntensity)) {
-                    values.markUnavailable(FEATURE_MAX_INTENSITY);
-                }
-            }
-            if (context.needs(FEATURE_ELONGATION)) {
-                values.elongation = src.elongation();
-            }
-            if (context.needs(FEATURE_FERET_DIAMETER_MAX)) {
-                values.feretDiameterMax = src.feretDiameterMax();
-            }
-            if (context.hasIntensityImage()) {
-                values.intensitySum = src.intensitySum();
-                values.meanIntensity = src.meanIntensity();
-                values.intensityStdDev = src.intensityStdDev();
-                values.minIntensity = src.intensityMin();
-                values.maxIntensity = src.intensityMax();
-                values.centerOfMassX = src.centerOfMassX();
-                values.centerOfMassY = src.centerOfMassY();
-                values.centerOfMassZ = src.centerOfMassZ();
-            }
-
-            out.put(Integer.valueOf(label), values);
+        } finally {
+            stopFeatureWorkers(executor);
         }
         return out;
+    }
+
+    private static FeatureValues computeFeatureForLabel(
+            ImagePlus labelImage,
+            FeatureContext context,
+            LabelFeatureAccumulator.Result measured,
+            Map<Integer, CompositeInputMeasurements.Inputs> compositeInputs,
+            boolean calibratedVolumeAvailable,
+            int label) {
+        LabelFeatureAccumulator.FeatureValues src = measured.valuesForLabel(label);
+        if (src == null) return null;
+        FeatureValues values = new FeatureValues();
+
+        if (context.needs(FEATURE_VOLUME)) values.volume = src.voxelCount;
+        if (context.needs(FEATURE_VOLUME_CALIBRATED)) {
+            if (calibratedVolumeAvailable) values.volumeCalibrated = src.calibratedVolume;
+            else values.markUnavailable(FEATURE_VOLUME_CALIBRATED);
+        }
+        if (context.needs(FEATURE_SURFACE_AREA)) values.surfaceArea = src.surfaceArea;
+        if (context.needs(FEATURE_SPHERICITY)) {
+            values.sphericity = sphericity(src.voxelCount, src.correctedSurfacePixels);
+        }
+        if (context.needs(FEATURE_COMPACTNESS)) {
+            values.compactness = compactness(src.voxelCount, src.correctedSurfacePixels);
+        }
+        if (context.needs(FEATURE_MEAN_INTENSITY)) {
+            values.meanIntensity = src.meanIntensity();
+            if (!Double.isFinite(values.meanIntensity)) {
+                values.markUnavailable(FEATURE_MEAN_INTENSITY);
+            }
+        }
+        if (context.needs(FEATURE_MAX_INTENSITY)) {
+            values.maxIntensity = src.maxIntensity();
+            if (!Double.isFinite(values.maxIntensity)) {
+                values.markUnavailable(FEATURE_MAX_INTENSITY);
+            }
+        }
+        if (context.needs(FEATURE_ELONGATION)) values.elongation = src.elongation();
+        if (context.needs(FEATURE_FERET_DIAMETER_MAX)) {
+            values.feretDiameterMax = src.feretDiameterMax();
+        }
+        if (context.hasIntensityImage()) {
+            values.intensitySum = src.intensitySum();
+            values.meanIntensity = src.meanIntensity();
+            values.intensityStdDev = src.intensityStdDev();
+            values.minIntensity = src.intensityMin();
+            values.maxIntensity = src.intensityMax();
+            values.centerOfMassX = src.centerOfMassX();
+            values.centerOfMassY = src.centerOfMassY();
+            values.centerOfMassZ = src.centerOfMassZ();
+        }
+        ObjectMask3D objectMask = null;
+        if (context.needsFractal() || context.needsArborization()) {
+            objectMask = maskForLabel(labelImage, label, src);
+        }
+        if (context.needsFractal() && objectMask != null) {
+            FractalXYMeasurements.Result fractal = FractalXYMeasurements.compute(objectMask);
+            values.fractalDimensionXY = fractal.fractalDimension();
+            values.fractalR2XY = fractal.rSquared();
+            values.lacunarityMeanXY = fractal.lacunarityMean();
+            values.lacunaritySpreadXY = fractal.lacunaritySpread();
+        }
+        if (context.needsComposites()) {
+            CompositeInputMeasurements.Inputs inputs = compositeInputs.get(Integer.valueOf(label));
+            CompositeShapeMeasurements.Result composites = CompositeShapeMeasurements.compute(
+                    values.sphericity,
+                    inputs == null ? Double.NaN : inputs.distanceMean,
+                    inputs == null ? Double.NaN : inputs.distanceStandardDeviation,
+                    inputs == null ? Double.NaN : inputs.spareness,
+                    inputs == null ? values.elongation : inputs.elongation,
+                    inputs == null ? Double.NaN : inputs.flatness,
+                    inputs == null ? values.feretDiameterMax : inputs.feretDiameter,
+                    inputs == null ? src.calibratedVolume : inputs.volume,
+                    src.voxelCount);
+            values.ri = composites.ramificationIndex();
+            values.sri = composites.surfaceRoughnessIndex();
+            values.pb = composites.processBurden();
+            values.mp = composites.morphologicalPolarity();
+            values.vsd = composites.volumeSpanDiscrepancy();
+        }
+        if (context.needsArborization() && objectMask != null) {
+            ObjectArborization.Result arbor = ObjectArborization.compute(
+                    objectMask.binaryCopy(), objectMask.width(), objectMask.height(),
+                    objectMask.depth(), labelImage.getCalibration());
+            if (arbor.valid) {
+                values.shollCriticalRadiusUm = arbor.shollCriticalRadiusUm;
+                values.shollCriticalIntersections = arbor.shollCriticalIntersections;
+                values.shollSchoenenIndex = arbor.shollSchoenenIndex;
+                values.shollPrimaryBranches = arbor.shollPrimaryBranches;
+                values.skeletonBranches = arbor.skeletonBranches;
+                values.skeletonJunctions = arbor.skeletonJunctions;
+                values.skeletonEndpoints = arbor.skeletonEndpoints;
+                values.skeletonVoxels = arbor.skeletonVoxels;
+                values.arborizationBackend = arbor.skeletonBackend;
+                if (!arbor.hasShollMeasurements()
+                        && !ObjectArborization.hasPhysicalShollCalibration(
+                        labelImage.getCalibration())) {
+                    context.warnPhysicalShollUnavailable(
+                            labelImage.getCalibration() == null
+                                    ? "" : labelImage.getCalibration().getUnit());
+                }
+            } else {
+                values.arborizationBackend = "Unavailable";
+                context.warnArborizationUnavailable(arbor.unavailableReason);
+            }
+        }
+        return values;
+    }
+
+    private static int featureWorkerCount(
+            int tasks, ImagePlus labelImage, FeatureContext context) {
+        // Arborization may call third-party skeletonizers whose reentrancy is not guaranteed.
+        if (tasks < 2 || !context.needsFractal() || context.needsArborization()
+                || labelImage.getStack().isVirtual()
+                || Boolean.TRUE.equals(OUTER_PARALLELISM.get())) return 1;
+        int configured = Integer.getInteger("oc3dplus.parallelism", 0).intValue();
+        int available = Runtime.getRuntime().availableProcessors();
+        int desired = configured > 0 ? configured : Math.min(available, 8);
+        return Math.max(1, Math.min(tasks, desired));
+    }
+
+    private static IndexedFeature feature(
+            Future<IndexedFeature> future, List<? extends Future<?>> futures) {
+        try {
+            return future.get();
+        } catch (InterruptedException interrupted) {
+            for (Future<?> pending : futures) pending.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Extended feature analysis was interrupted.", interrupted);
+        } catch (ExecutionException failed) {
+            for (Future<?> pending : futures) pending.cancel(true);
+            Throwable cause = failed.getCause();
+            if (cause instanceof RuntimeException) throw (RuntimeException) cause;
+            if (cause instanceof Error) throw (Error) cause;
+            throw new IllegalStateException("Extended feature analysis failed.", cause);
+        }
+    }
+
+    private static void stopFeatureWorkers(ExecutorService executor) {
+        executor.shutdownNow();
+        try {
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static final class IndexedFeature {
+        private final int label;
+        private final FeatureValues values;
+
+        private IndexedFeature(int label, FeatureValues values) {
+            this.label = label;
+            this.values = values;
+        }
+    }
+
+    private static ObjectMask3D maskForLabel(ImagePlus labelImage,
+                                             int label,
+                                             LabelFeatureAccumulator.FeatureValues bounds) {
+        if (labelImage == null || labelImage.getStack() == null || bounds == null
+                || bounds.voxelCount <= 0) {
+            return null;
+        }
+        int width = bounds.boundingWidth();
+        int height = bounds.boundingHeight();
+        int depth = bounds.boundingDepth();
+        long size = (long) width * (long) height * (long) depth;
+        if (size <= 0 || size > Integer.MAX_VALUE) return null;
+        byte[] voxels = new byte[(int) size];
+        ImageStack stack = labelImage.getStack();
+        int outPlane = width * height;
+        for (int z = bounds.minZ; z <= bounds.maxZ; z++) {
+            ImageProcessor processor = stack.getProcessor(z + 1);
+            if (processor == null) continue;
+            int oz = z - bounds.minZ;
+            for (int y = bounds.minY; y <= bounds.maxY; y++) {
+                int sourceOffset = y * labelImage.getWidth();
+                int outputOffset = oz * outPlane + (y - bounds.minY) * width;
+                for (int x = bounds.minX; x <= bounds.maxX; x++) {
+                    if (labelFromPixel(processor.getf(sourceOffset + x)) == label) {
+                        voxels[outputOffset + x - bounds.minX] = 1;
+                    }
+                }
+            }
+        }
+        return new ObjectMask3D(voxels, width, height, depth);
     }
 
     private static FilterResult evaluateFilters(Map<Integer, FeatureValues> features,
@@ -953,10 +1257,22 @@ public final class OC3DPlusRunner {
     private static final class FeatureContext {
         private final Set<String> requiredFeatures = new HashSet<String>();
         private final ImagePlus intensityImage;
+        private final OC3DPlusParameters.WarningSink warningSink;
+        private boolean fractal;
+        private boolean composites;
+        private boolean arborization;
+        private boolean warnedArborizationUnavailable;
+        private boolean warnedPhysicalShollUnavailable;
 
         FeatureContext(List<MorphPredicate> predicates,
                        ImagePlus intensityImage,
+                       OC3DPlusMeasurements measurements,
                        OC3DPlusParameters.WarningSink warningSink) {
+            OC3DPlusMeasurements selected = measurements == null
+                    ? OC3DPlusMeasurements.NONE : measurements;
+            fractal = selected.fractalXY;
+            composites = selected.compositeIndices;
+            arborization = selected.arborization;
             if (predicates != null) {
                 for (int i = 0; i < predicates.size(); i++) {
                     MorphPredicate predicate = predicates.get(i);
@@ -964,6 +1280,9 @@ public final class OC3DPlusRunner {
                     String feature = normalizeFeature(predicate.featureName);
                     if (SUPPORTED_FEATURES.contains(feature)) {
                         requiredFeatures.add(feature);
+                        if (ExtendedFeatureCatalog.isFractalFeature(feature)) fractal = true;
+                        if (ExtendedFeatureCatalog.isCompositeFeature(feature)) composites = true;
+                        if (ExtendedFeatureCatalog.isArborizationFeature(feature)) arborization = true;
                     } else {
                         warn(warningSink, "Warning: unknown 3D Objects Counter+ morph feature '"
                                 + predicate.featureName + "'; predicate treated as true.");
@@ -976,6 +1295,12 @@ public final class OC3DPlusRunner {
                 requiredFeatures.add(ALWAYS_REPORTED_MORPHOLOGY_FEATURES[i]);
             }
             this.intensityImage = intensityImage;
+            this.warningSink = warningSink;
+            if (composites) {
+                requiredFeatures.add(FEATURE_SPHERICITY);
+                requiredFeatures.add(FEATURE_ELONGATION);
+                requiredFeatures.add(FEATURE_FERET_DIAMETER_MAX);
+            }
         }
 
         boolean needs(String feature) {
@@ -984,6 +1309,35 @@ public final class OC3DPlusRunner {
 
         boolean hasIntensityImage() {
             return intensityImage != null;
+        }
+
+        boolean needsFractal() {
+            return fractal;
+        }
+
+        boolean needsComposites() {
+            return composites;
+        }
+
+        boolean needsArborization() {
+            return arborization;
+        }
+
+        void warnArborizationUnavailable(String reason) {
+            if (warnedArborizationUnavailable) return;
+            warnedArborizationUnavailable = true;
+            warn(warningSink, "Warning: arborization measurements were unavailable"
+                    + (reason == null || reason.trim().isEmpty() ? "." : ": " + reason));
+        }
+
+        void warnPhysicalShollUnavailable(String spatialUnit) {
+            if (warnedPhysicalShollUnavailable) return;
+            warnedPhysicalShollUnavailable = true;
+            String unit = spatialUnit == null || spatialUnit.trim().isEmpty()
+                    ? "unspecified" : spatialUnit.trim();
+            warn(warningSink, "Warning: skeleton graph counts are available, but physical "
+                    + "Sholl measurements require a recognised spatial unit; found '"
+                    + unit + "'.");
         }
     }
 
@@ -1003,6 +1357,24 @@ public final class OC3DPlusRunner {
         double centerOfMassY = Double.NaN;
         double centerOfMassZ = Double.NaN;
         double feretDiameterMax = Double.NaN;
+        double fractalDimensionXY = Double.NaN;
+        double fractalR2XY = Double.NaN;
+        double lacunarityMeanXY = Double.NaN;
+        double lacunaritySpreadXY = Double.NaN;
+        double ri = Double.NaN;
+        double sri = Double.NaN;
+        double pb = Double.NaN;
+        double mp = Double.NaN;
+        double vsd = Double.NaN;
+        double shollCriticalRadiusUm = Double.NaN;
+        double shollCriticalIntersections = Double.NaN;
+        double shollSchoenenIndex = Double.NaN;
+        double shollPrimaryBranches = Double.NaN;
+        double skeletonBranches = Double.NaN;
+        double skeletonJunctions = Double.NaN;
+        double skeletonEndpoints = Double.NaN;
+        double skeletonVoxels = Double.NaN;
+        String arborizationBackend = "";
         private int unavailableMask;
 
         void markUnavailable(String feature) {
@@ -1024,6 +1396,31 @@ public final class OC3DPlusRunner {
             if (FEATURE_MEAN_INTENSITY.equals(feature)) return meanIntensity;
             if (FEATURE_MAX_INTENSITY.equals(feature)) return maxIntensity;
             if (FEATURE_FERET_DIAMETER_MAX.equals(feature)) return feretDiameterMax;
+            if (ExtendedFeatureCatalog.FRACTAL_DIM_XY.equals(feature)) return fractalDimensionXY;
+            if (ExtendedFeatureCatalog.FRACTAL_R2_XY.equals(feature)) return fractalR2XY;
+            if (ExtendedFeatureCatalog.LACUNARITY_MEAN_XY.equals(feature)) return lacunarityMeanXY;
+            if (ExtendedFeatureCatalog.LACUNARITY_SPREAD_XY.equals(feature)) return lacunaritySpreadXY;
+            if (ExtendedFeatureCatalog.RI.equals(feature)) return ri;
+            if (ExtendedFeatureCatalog.SRI.equals(feature)) return sri;
+            if (ExtendedFeatureCatalog.PB.equals(feature)) return pb;
+            if (ExtendedFeatureCatalog.MP.equals(feature)) return mp;
+            if (ExtendedFeatureCatalog.VSD.equals(feature)) return vsd;
+            if (ExtendedFeatureCatalog.SHOLL_CRITICAL_RADIUS_UM.equals(feature)) {
+                return shollCriticalRadiusUm;
+            }
+            if (ExtendedFeatureCatalog.SHOLL_CRITICAL_INTERSECTIONS.equals(feature)) {
+                return shollCriticalIntersections;
+            }
+            if (ExtendedFeatureCatalog.SHOLL_SCHOENEN_INDEX.equals(feature)) {
+                return shollSchoenenIndex;
+            }
+            if (ExtendedFeatureCatalog.SHOLL_PRIMARY_BRANCHES.equals(feature)) {
+                return shollPrimaryBranches;
+            }
+            if (ExtendedFeatureCatalog.SKELETON_BRANCHES.equals(feature)) return skeletonBranches;
+            if (ExtendedFeatureCatalog.SKELETON_JUNCTIONS.equals(feature)) return skeletonJunctions;
+            if (ExtendedFeatureCatalog.SKELETON_ENDPOINTS.equals(feature)) return skeletonEndpoints;
+            if (ExtendedFeatureCatalog.SKELETON_VOXELS.equals(feature)) return skeletonVoxels;
             return Double.NaN;
         }
     }

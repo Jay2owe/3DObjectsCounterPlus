@@ -15,7 +15,7 @@ authors:
     email: jamiemalcolm12@gmail.com
 repository-code: "https://github.com/Jay2owe/3DObjectsCounterPlus"
 url: "https://github.com/Jay2owe/3DObjectsCounterPlus"
-license: BSD-3-Clause
+license: GPL-3.0-or-later
 version: "0.1.1"
 date-released: 2026-06-02
 keywords:

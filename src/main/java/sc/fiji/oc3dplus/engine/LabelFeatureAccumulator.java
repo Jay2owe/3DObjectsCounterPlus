@@ -226,6 +226,16 @@ final class LabelFeatureAccumulator {
         return unit;
     }
 
+    static ResultsTable emptyStatisticsTable(Calibration calibration) {
+        ResultsTable table = new ResultsTable();
+        String unit = unitOf(calibration);
+        Result.initialiseStatisticsHeadings(
+                table,
+                "Volume (" + unit + "^3)",
+                "Surface (" + unit + "^2)");
+        return table;
+    }
+
     private static double positiveOrOne(double value) {
         return Double.isFinite(value) && value > 0.0 ? value : 1.0;
     }

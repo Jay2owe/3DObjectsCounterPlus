@@ -13,14 +13,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Public static façade for 3D Objects Counter+. Use this from Java; the
  * macro grammar in the {@code ObjectsCounter3DPlus} plugin forwards to the
  * same engine.
  *
- * <p>Thread-safe: every call constructs a fresh engine instance and uses
- * the thread-safe mcib3d path internally. The facade methods do not show
+ * <p>Thread-safe: every call constructs a fresh engine instance. Compatible
+ * legacy-counter detection is protected by its global lock; native detection
+ * and subsequent feature work use task-local state. The facade methods do not show
  * images, open results windows, write to ImageJ's global Results window, or
  * mutate the input image; callers decide what to display or save.
  *
@@ -120,9 +122,10 @@ public final class OC3DPlus {
      * Run {@link #count(ImagePlus, OC3DPlusParameters)} on every image in
      * {@code images} concurrently and return the results in input order.
      *
-     * <p>Each call uses the thread-safe mcib3d engine path and constructs a
-     * fresh engine instance, so the calls share no state. {@code params} is
-     * immutable and shared across threads safely.
+     * <p>Each call constructs a fresh engine instance. The legacy detection
+     * backend may serialize its detection stage behind ImageJ's global-state
+     * lock, while native detection and subsequent feature work can overlap.
+     * {@code params} is immutable and shared across threads safely.
      *
      * <p>Like {@code count}, this method returns results directly and does not
      * show windows, mutate input images, or write to ImageJ's global Results
@@ -146,14 +149,22 @@ public final class OC3DPlus {
         if (images.isEmpty()) {
             return Collections.emptyList();
         }
-        int poolSize = threads > 0 ? threads : Math.max(1, Runtime.getRuntime().availableProcessors());
+        int automatic = Math.min(Runtime.getRuntime().availableProcessors(), 8);
+        int requested = threads > 0 ? threads : Math.max(1, automatic);
+        int poolSize = Math.max(1, Math.min(images.size(), requested));
         ExecutorService pool = Executors.newFixedThreadPool(poolSize);
+        List<Future<OC3DPlusResult>> futures =
+                new ArrayList<Future<OC3DPlusResult>>(images.size());
         try {
-            List<Future<OC3DPlusResult>> futures = new ArrayList<Future<OC3DPlusResult>>();
             for (final ImagePlus image : images) {
                 futures.add(pool.submit(new Callable<OC3DPlusResult>() {
                     @Override public OC3DPlusResult call() {
-                        return count(image, params);
+                        OC3DPlusRunner.enterOuterParallelism();
+                        try {
+                            return count(image, params);
+                        } finally {
+                            OC3DPlusRunner.exitOuterParallelism();
+                        }
                     }
                 }));
             }
@@ -163,9 +174,11 @@ public final class OC3DPlus {
                 try {
                     results.add(future.get());
                 } catch (InterruptedException ie) {
+                    cancel(futures);
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Interrupted while running parallel count", ie);
                 } catch (ExecutionException ee) {
+                    cancel(futures);
                     Throwable cause = ee.getCause() == null ? ee : ee.getCause();
                     throw new RuntimeException("Parallel count failed for images[" + i + "] "
                             + imageSummary(images.get(i)) + ": " + throwableMessage(cause), cause);
@@ -173,8 +186,17 @@ public final class OC3DPlus {
             }
             return results;
         } finally {
-            pool.shutdown();
+            pool.shutdownNow();
+            try {
+                pool.awaitTermination(5, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
+    }
+
+    private static void cancel(List<? extends Future<?>> futures) {
+        for (Future<?> future : futures) future.cancel(true);
     }
 
     /** Fluent builder for {@link OC3DPlusParameters}. */
@@ -191,6 +213,9 @@ public final class OC3DPlus {
         private ImagePlus intensityImage = null;
         private final List<MorphPredicate> filters = new ArrayList<MorphPredicate>();
         private OC3DPlusParameters.WarningSink warningSink = null;
+        private boolean measureFractalXY;
+        private boolean measureCompositeIndices;
+        private boolean measureArborization;
 
         private Builder() {}
 
@@ -242,6 +267,30 @@ public final class OC3DPlus {
             return this;
         }
 
+        public Builder measureFractalXY(boolean enabled) {
+            this.measureFractalXY = enabled;
+            return this;
+        }
+
+        public Builder measureCompositeIndices(boolean enabled) {
+            this.measureCompositeIndices = enabled;
+            return this;
+        }
+
+        public Builder measureArborization(boolean enabled) {
+            this.measureArborization = enabled;
+            return this;
+        }
+
+        public Builder measurements(OC3DPlusMeasurements selected) {
+            OC3DPlusMeasurements safe = selected == null
+                    ? OC3DPlusMeasurements.NONE : selected;
+            this.measureFractalXY = safe.fractalXY;
+            this.measureCompositeIndices = safe.compositeIndices;
+            this.measureArborization = safe.arborization;
+            return this;
+        }
+
         public OC3DPlusParameters build() {
             if (maxSize < minSize) {
                 throw new IllegalStateException(
@@ -251,7 +300,9 @@ public final class OC3DPlus {
                     threshold, minSize, maxSize, excludeOnEdges,
                     Collections.unmodifiableList(new ArrayList<MorphPredicate>(filters)),
                     intensityImage,
-                    warningSink);
+                    warningSink,
+                    new OC3DPlusMeasurements(measureFractalXY,
+                            measureCompositeIndices, measureArborization));
         }
     }
 

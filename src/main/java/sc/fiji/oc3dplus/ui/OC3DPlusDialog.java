@@ -84,6 +84,7 @@ public final class OC3DPlusDialog extends JDialog {
     private final ImagePlus targetImage;
     private final OkHandler okHandler;
     private final boolean targetImageManagedAtLaunch;
+    private final boolean settingsOnly;
 
     private final TextField thresholdField;
     private final Scrollbar thresholdScrollbar;
@@ -106,6 +107,8 @@ public final class OC3DPlusDialog extends JDialog {
     private final JButton cancelButton;
     private final FilterRowsPanel filterRows;
     private final JLabel filterSummary;
+    private final JButton extendedMeasurementsButton;
+    private final JLabel extendedMeasurementsSummary;
     private final double thresholdDisplayMaximum;
 
     private final List<ImagePlus> previewMapImages = new java.util.ArrayList<ImagePlus>();
@@ -124,20 +127,36 @@ public final class OC3DPlusDialog extends JDialog {
     private volatile boolean dialogDisposed;
 
     public OC3DPlusDialog(Frame owner, ImagePlus target, OkHandler okHandler) {
-        super(owner, "3D Objects Counter+", false);
+        this(owner, target, okHandler, null, false);
+    }
+
+    /**
+     * Batch-settings variant: OK returns the selected model without running
+     * the sample image or opening output windows.
+     */
+    public OC3DPlusDialog(Frame owner,
+                          ImagePlus target,
+                          OkHandler okHandler,
+                          OC3DPlusDialogModel initialModel,
+                          boolean settingsOnly) {
+        super(owner, settingsOnly ? "3D Objects Counter+ Batch settings"
+                : "3D Objects Counter+", false);
         if (target == null) {
             throw new IllegalArgumentException(
                     "target image must not be null (target=null; expected a 3D ImagePlus).");
         }
         this.targetImage = target;
+        this.settingsOnly = settingsOnly;
         this.okHandler = okHandler == null ? new OkHandler() {
             @Override public void onOk(OC3DPlusDialogModel model, OC3DPlusResult result) {}
         } : okHandler;
-        this.model = new OC3DPlusDialogModel();
-        this.model.configureForImage(target);
-        this.model.threshold = OC3DPlusDialogDefaults.isoDataThresholdAtCenterSlice(
-                target, this.model.threshold);
-        this.model.maxSize = defaultMaxSize(target);
+        this.model = initialModel == null ? new OC3DPlusDialogModel() : initialModel.snapshot();
+        if (initialModel == null) {
+            this.model.configureForImage(target);
+            this.model.threshold = OC3DPlusDialogDefaults.isoDataThresholdAtCenterSlice(
+                    target, this.model.threshold);
+            this.model.maxSize = defaultMaxSize(target);
+        }
         OC3DPlusDialogDefaults.moveToCenterSlice(target);
         this.thresholdDisplayMaximum = OC3DPlusDialogDefaults.finiteMaximum(
                 target, this.model.threshold);
@@ -299,6 +318,33 @@ public final class OC3DPlusDialog extends JDialog {
         content.add(filterSummary);
         content.add(Box.createVerticalStrut(8));
 
+        JPanel extendedPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+        extendedPanel.setOpaque(false);
+        extendedPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        extendedMeasurementsButton = new JButton("Extended measurements...");
+        extendedMeasurementsSummary = new JLabel(model.extendedMeasurementsSummary());
+        styleSubtleStatusLine(extendedMeasurementsSummary);
+        extendedMeasurementsButton.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                OC3DPlusExtendedMeasurementsDialog dialog =
+                        new OC3DPlusExtendedMeasurementsDialog(OC3DPlusDialog.this, model,
+                                new OC3DPlusExtendedMeasurementsDialog.AppliedCallback() {
+                            @Override public void settingsApplied() {
+                                extendedMeasurementsSummary.setText(
+                                        model.extendedMeasurementsSummary());
+                                updateFilterSummary(null);
+                                markPreviewStale();
+                            }
+                        });
+                dialog.setVisible(true);
+            }
+        });
+        extendedPanel.add(extendedMeasurementsButton);
+        extendedPanel.add(Box.createHorizontalStrut(6));
+        extendedPanel.add(extendedMeasurementsSummary);
+        content.add(extendedPanel);
+        content.add(Box.createVerticalStrut(8));
+
         showLabels = new JCheckBox("Objects", model.showLabels);
         showLabels.addActionListener(new ActionListener() {
             @Override public void actionPerformed(ActionEvent e) {
@@ -327,9 +373,11 @@ public final class OC3DPlusDialog extends JDialog {
             }
         });
 
-        content.add(sectionLabel("Maps to show:"));
-        content.add(createCheckboxColumn(showLabels, showSurfaces, showCentroids, showCentersOfMass));
-        content.add(Box.createVerticalStrut(8));
+        if (!settingsOnly) {
+            content.add(sectionLabel("Maps to show:"));
+            content.add(createCheckboxColumn(showLabels, showSurfaces, showCentroids, showCentersOfMass));
+            content.add(Box.createVerticalStrut(8));
+        }
 
         showStats = new JCheckBox("Statistics", model.showStats);
         showStats.addActionListener(new ActionListener() {
@@ -345,9 +393,11 @@ public final class OC3DPlusDialog extends JDialog {
             }
         });
 
-        content.add(sectionLabel("Results tables to show:"));
-        content.add(createCheckboxColumn(showStats, showSummary));
-        content.add(Box.createVerticalStrut(8));
+        if (!settingsOnly) {
+            content.add(sectionLabel("Results tables to show:"));
+            content.add(createCheckboxColumn(showStats, showSummary));
+            content.add(Box.createVerticalStrut(8));
+        }
 
         JPanel redirectPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         redirectPanel.setOpaque(false);
@@ -362,8 +412,10 @@ public final class OC3DPlusDialog extends JDialog {
             }
         });
         redirectPanel.add(redirectBox);
-        content.add(redirectPanel);
-        content.add(Box.createVerticalStrut(8));
+        if (!settingsOnly) {
+            content.add(redirectPanel);
+            content.add(Box.createVerticalStrut(8));
+        }
 
         statusLabel = new JLabel(" ");
         statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -402,7 +454,11 @@ public final class OC3DPlusDialog extends JDialog {
         okButton = new JButton("OK");
         okButton.addActionListener(new ActionListener() {
             @Override public void actionPerformed(ActionEvent e) {
-                runEngineAsync(/* commitResult */ true);
+                if (OC3DPlusDialog.this.settingsOnly) {
+                    acceptSettingsOnly();
+                } else {
+                    runEngineAsync(/* commitResult */ true);
+                }
             }
         });
         buttons.add(previewButton);
@@ -673,6 +729,25 @@ public final class OC3DPlusDialog extends JDialog {
         };
         currentWorker = worker;
         worker.execute();
+    }
+
+    private void acceptSettingsOnly() {
+        if (!updateThresholdFromField() || !updateSliceFromField()
+                || !updateMinFromField() || !updateMaxFromField()) {
+            return;
+        }
+        List<String> errors = model.validate();
+        if (!errors.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Image: " + titleOf(targetImage) + "\n" + String.join("\n", errors),
+                    "Invalid parameters", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        OC3DPlusDialogModel selected = model.snapshot();
+        okHandler.onOk(selected, null);
+        closePreviewMaps();
+        closeThresholdPreview();
+        dispose();
     }
 
     private boolean onEngineDone(EngineRunOutput output, boolean commitResult,
@@ -1092,6 +1167,7 @@ public final class OC3DPlusDialog extends JDialog {
         showStats.setEnabled(enabled);
         showSummary.setEnabled(enabled);
         redirectBox.setEnabled(enabled);
+        extendedMeasurementsButton.setEnabled(enabled);
         setTreeEnabled(filterRows, enabled);
     }
 

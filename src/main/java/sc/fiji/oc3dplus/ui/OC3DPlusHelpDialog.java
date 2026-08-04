@@ -121,6 +121,26 @@ public final class OC3DPlusHelpDialog {
                 "Exclude objects on edges: removes objects touching any border of the stack."
         });
 
+        addListSection(panel, "Extended measurements", new String[] {
+                "Extended measurements opens a second settings window; all groups are off by default.",
+                "Fractal complexity uses the object's XY projection. It needs 8 by 8 pixel bounds, 32 foreground pixels, four box scales, and fit R2 at least 0.9; poor fits keep R2 but report the other values unavailable.",
+                "Composite formulas: RI=1/sphericity; SRI=distance SD/distance mean; PB=1-spareness; MP=(elongation-1)/((elongation-1)+(flatness-1)); VSD=log10(Feret^3/volume).",
+                "RI repeats sphericity geometry. MP is unavailable for spheres and near-spheres. Composite values are unavailable below the fixed 8-voxel reliability floor or for invalid prerequisites; there is no extra setting.",
+                "Arborization adds skeleton graph and centroid-centred 5 micrometre Sholl measurements and can be slow.",
+                "Arborization uses Fiji Skeletonize3D. If it is unavailable, the plugin reports unavailable values instead of changing algorithms silently.",
+                "Only selected groups show filter rows. Cancel, Escape, or closing the window discards changes; Use Settings applies them."
+        });
+
+        addListSection(panel, "Folder batch", new String[] {
+                "Analyze > 3D Objects Counter+ Batch processes TIFF images in a selected folder and its subfolders, using one shared set of familiar analysis settings.",
+                "The output folder contains a manifest row for every image, an aggregate object table, and long-form within-batch scores.",
+                "Every object row records its source path, source image index, and source object label. The manifest records the exact settings, calibration, enabled extensions, backend, and plugin version.",
+                "Scores compare finite object values with all successful objects in that BatchRunId. Changing the images in the batch changes the reference population and scores.",
+                "Volume, surface, and Feret values use common micrometre-based scoring units. If one successful image has absent or incompatible units, that physical feature is not scored anywhere in the batch.",
+                "Within-batch scores are descriptive object positions, not independent biological replicates or inferential statistics.",
+                "Cancelling leaves the output folder marked .incomplete; do not treat files in that folder as a completed batch."
+        });
+
         addListSection(panel, "Maps to show", new String[] {
                 "Objects creates a labelled object map with object numbers at the centroids.",
                 "Surfaces creates a map of object surface voxels with object numbers at the centroids.",
@@ -139,6 +159,7 @@ public final class OC3DPlusHelpDialog {
 
         addListSection(panel, "Action buttons", new String[] {
                 "Preview runs the counter with the current settings, shows selected preview maps, and keeps this dialog open.",
+                "Extended measurements opens the optional measurement and filter settings.",
                 "OK runs the counter with the current settings, shows the selected outputs, and closes this dialog.",
                 "Cancel closes this dialog without running the counter."
         });

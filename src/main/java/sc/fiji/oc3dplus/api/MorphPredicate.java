@@ -49,6 +49,10 @@ public final class MorphPredicate {
             "max_intensity",
             "feret_diameter_max"));
 
+    static {
+        SUPPORTED_FEATURES.addAll(ExtendedFeatureCatalog.allFeatureNames());
+    }
+
     public final String featureName;
     public final Operator op;
     public final double value;
