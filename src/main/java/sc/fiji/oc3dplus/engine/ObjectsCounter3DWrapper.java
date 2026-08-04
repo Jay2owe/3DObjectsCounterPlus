@@ -289,8 +289,17 @@ public final class ObjectsCounter3DWrapper {
      * labelling step entirely — the label image already contains unique
      * integer labels per object.
      *
-     * <p>mcib3d wraps the full label stack for measurement, so callers should
-     * expect memory use proportional to the complete image volume.
+     * <p>Measured by {@code oc3d-core}'s {@code LabelFeatureAccumulator}, so this
+     * path needs no third-party dependency and works on a bare Fiji without the
+     * 3D ImageJ Suite update site.
+     *
+     * <p>Memory use is proportional to the number of objects rather than to the
+     * volume: the accumulator keeps running totals per label and never holds a
+     * per-object voxel list.
+     *
+     * <p>{@code redirectImage}, when supplied, must match the label image in
+     * width, height and slice count; a mismatch is rejected with an
+     * {@link IllegalArgumentException} naming the offending dimension.
      */
     public Result fromLabelImage(
             ImagePlus labelImage,
@@ -328,7 +337,6 @@ public final class ObjectsCounter3DWrapper {
             throw new IllegalArgumentException(
                     "labelImage must not be null (labelImage=null; expected a labelled 3D ImagePlus).");
         }
-        requireMcib3dAvailable("fromLabelImage");
         ProgressReporter safeProgress = progress == null ? ProgressReporter.none() : progress;
 
         safeProgress.step("Preparing labelled image");
@@ -337,19 +345,20 @@ public final class ObjectsCounter3DWrapper {
 
         try {
             safeProgress.finishStep();
-            mcib3d.image3d.ImageHandler labelledIH = mcib3d.image3d.ImageHandler.wrap(filteredLabelImage);
-
-            mcib3d.geom2.Objects3DIntPopulation population =
-                    new mcib3d.geom2.Objects3DIntPopulation(labelledIH);
-
-            int nbObjects = population.getNbObjects();
-
-            Calibration cal = filteredLabelImage.getCalibration();
-            mcib3d.image3d.ImageHandler measurementIH =
-                    (redirectImage != null) ? mcib3d.image3d.ImageHandler.wrap(redirectImage) : null;
             safeProgress.step("Measuring labelled objects");
-            ResultsTable stats = buildNativeStatisticsTable(population, cal, measurementIH,
-                    filteredLabelImage, redirectImage);
+            // Measured by oc3d-core's accumulator rather than by wrapping the
+            // stack into mcib3d. The label image already carries unique integer
+            // labels, so there was never anything for a labelling library to do
+            // here - only measurement, which needs no dependency at all. This is
+            // also what makes label-image input work on a bare Fiji, where the 3D
+            // ImageJ Suite update site is not installed.
+            sc.fiji.oc3d.core.measure.LabelFeatureAccumulator.Result measured =
+                    sc.fiji.oc3d.core.measure.LabelFeatureAccumulator.scan(
+                            filteredLabelImage,
+                            redirectImage,
+                            filteredLabelImage.getCalibration());
+            ResultsTable stats = measured.toStatisticsTable();
+            int nbObjects = measured.objectCount();
 
             ImagePlus objectsMap = null;
             if (wantObjectsMap) {

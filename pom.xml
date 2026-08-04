@@ -126,6 +126,26 @@
 			<artifactId>ij</artifactId>
 		</dependency>
 
+		<!--
+		  Shared engine, extracted for reuse across the 3D Objects Counter family.
+		  The group id is deliberately io.github.jay2owe and not sc.fiji: this
+		  module is never published as a user-facing jar, and sc.fiji is the
+		  SciJava org's own namespace. The Java package is sc.fiji.oc3d.core.
+		  Group id and package are needed as different strings by the shade
+		  configuration - see the migration plan, Stage 06.
+
+		  SHADING DEBT: this is compile scope with no shading configured yet, so
+		  the built jar does not contain these classes and would fail on a real
+		  Fiji install with NoClassDefFoundError. Stage 06 adds maven-shade-plugin
+		  with the sc.fiji.oc3d.core -> sc.fiji.oc3dplus.internal.core relocation.
+		  Do not publish a jar before then.
+		-->
+		<dependency>
+			<groupId>io.github.jay2owe</groupId>
+			<artifactId>oc3d-core</artifactId>
+			<version>0.1.0-SNAPSHOT</version>
+		</dependency>
+
 		<!-- Native 3D Objects Counter (provided by Fiji's core update site) -->
 		<dependency>
 			<groupId>sc.fiji</groupId>
