@@ -7,7 +7,24 @@ mcib3d-core-*.jar
 # Local/private release and planning artefacts
 /PUBLISHING_AUDIT.md
 /release-staging/
-/docs/
+# The directory itself must be re-included first. A trailing-slash ignore stops
+# git descending into it at all, so a negation deeper inside can never be reached
+# - and this repository's .git/info/exclude carries its own "/docs/" line, which
+# .gitignore has to override for the re-include below to take effect here as well
+# as in a fresh clone.
+!/docs/
+/docs/*
+# ...with one exception. docs/migration/TOLERANCES.md is the declared-tolerance
+# contract the equivalence gate rests on, and ToleranceContractTest reads it at
+# build time - so with all of docs/ ignored, a fresh clone could not run the test
+# suite at all. Tracking it also gives the contract a history, which matters
+# because "no tolerance is widened after seeing a result" is only checkable if the
+# earlier version is recoverable. A directory ignored with a trailing slash cannot
+# be re-entered by a negation, hence the /docs/* form and the re-includes below.
+# Every other planning artefact under docs/ stays private.
+!/docs/migration/
+/docs/migration/*
+!/docs/migration/TOLERANCES.md
 /.planning/
 /graphify-out/
 /obsidian/
