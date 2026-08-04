@@ -1,0 +1,87 @@
+# oc3dplus-equivalence-goldens v1
+# build=e6d0e2e fixture=batch-legacy-columns records=1
+# Immutable. Never regenerate a golden to make a diff disappear.
+[record fixture=batch-legacy-columns case=A config=batch]
+note=Batch CSV outputs. BatchRunId, SourceLastModified and PluginVersion are blanked; every remaining line is Tier 1.
+config.fractal=false
+config.composites=false
+config.arborization=false
+config.mixedUnits=false
+config.inputs=blobs-8bit blobs-16bit sphere-solid
+outcome=ok
+inputCount=3
+successfulCount=3
+failedCount=0
+objectCount=7
+csv.manifest.0=<normalised>,SourceRelativePath,<normalised>,Status,Error,ObjectCount,ContributedScoreRows,PixelWidth,PixelHeight,PixelDepth,SpatialUnit,MacroOptions,FractalXYEnabled,CompositesEnabled,ArborizationEnabled,ArborizationBackend,<normalised>
+csv.manifest.1=<normalised>,00-blobs-8bit.tif,<normalised>,success,Volume scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Surface scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Morph_Feret3D_um scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Volume scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Surface scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Morph_Feret3D_um scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Within-batch z-score unavailable for constant feature Morph_Elongation; tied finite values receive percentile 50.,3,24,1.0,1.0,1.0,pixel,threshold=100 min=1 max=Infinity,false,false,false,,<normalised>
+csv.manifest.2=<normalised>,01-blobs-16bit.tif,<normalised>,success,Volume scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Surface scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Morph_Feret3D_um scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Volume scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Surface scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Morph_Feret3D_um scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Within-batch z-score unavailable for constant feature Morph_Elongation; tied finite values receive percentile 50.,3,24,1.0,1.0,1.0,pixel,threshold=100 min=1 max=Infinity,false,false,false,,<normalised>
+csv.manifest.3=<normalised>,02-sphere-solid.tif,<normalised>,success,Volume scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Surface scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Morph_Feret3D_um scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Volume scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Surface scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Morph_Feret3D_um scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Within-batch z-score unavailable for constant feature Morph_Elongation; tied finite values receive percentile 50.,1,8,1.0,1.0,1.0,pixel,threshold=100 min=1 max=Infinity,false,false,false,,<normalised>
+csv.manifest.lines=4
+csv.objects.0=<normalised>,SourceRelativePath,SourceImageIndex,SourceObjectLabel,Volume (pixel^3),Surface (pixel^2),Nb of obj. voxels,Nb of surf. voxels,IntDen,Mean,StdDev,Median,Min,Max,X,Y,Z,XM,YM,ZM,BX,BY,BZ,B-width,B-height,B-depth,Label,Morph_Sphericity,Morph_Compactness,Morph_Elongation,Morph_Feret3D_um
+csv.objects.1=<normalised>,00-blobs-8bit.tif,1,1.0,27.0,54.0,27.0,26.0,5400.0,200.0,0.0,200.0,200.0,200.0,3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,3.0,3.0,3.0,1.0,1.2741900216184983,2.0687242205978604,1.0,3.4641016151377553
+csv.objects.2=<normalised>,00-blobs-8bit.tif,1,2.0,64.0,96.0,64.0,56.0,12800.0,200.0,0.0,200.0,200.0,200.0,9.5,9.5,9.5,9.5,9.5,9.5,8.0,8.0,8.0,4.0,4.0,4.0,2.0,1.1663352536115117,1.586610077372494,1.0,5.196152422706634
+csv.objects.3=<normalised>,00-blobs-8bit.tif,1,3.0,125.0,150.0,125.0,98.0,25000.0,200.0,0.0,200.0,200.0,200.0,16.0,16.0,16.0,16.0,16.0,16.0,14.0,14.0,14.0,5.0,5.0,5.0,3.0,1.106614425337798,1.3551550304158482,1.0,6.928203230275514
+csv.objects.4=<normalised>,01-blobs-16bit.tif,2,1.0,27.0,54.0,27.0,26.0,5400.0,200.0,0.0,200.0,200.0,200.0,3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,3.0,3.0,3.0,1.0,1.2741900216184983,2.0687242205978604,1.0,3.4641016151377553
+csv.objects.5=<normalised>,01-blobs-16bit.tif,2,2.0,64.0,96.0,64.0,56.0,12800.0,200.0,0.0,200.0,200.0,200.0,9.5,9.5,9.5,9.5,9.5,9.5,8.0,8.0,8.0,4.0,4.0,4.0,2.0,1.1663352536115117,1.586610077372494,1.0,5.196152422706634
+csv.objects.6=<normalised>,01-blobs-16bit.tif,2,3.0,125.0,150.0,125.0,98.0,25000.0,200.0,0.0,200.0,200.0,200.0,16.0,16.0,16.0,16.0,16.0,16.0,14.0,14.0,14.0,5.0,5.0,5.0,3.0,1.106614425337798,1.3551550304158482,1.0,6.928203230275514
+csv.objects.7=<normalised>,02-sphere-solid.tif,3,1.0,924.0,684.0,924.0,360.0,184800.0,200.0,0.0,200.0,200.0,200.0,10.0,10.0,10.0,10.0,10.0,10.0,4.0,4.0,4.0,13.0,13.0,13.0,1.0,1.0273558491687074,1.084333046501458,1.0,12.0
+csv.objects.lines=8
+csv.scores.0=<normalised>,SourceRelativePath,SourceImageIndex,SourceObjectLabel,Feature,RawValue,RawUnit,ScoringValue,ScoringUnit,WithinBatchZ,WithinBatchPercentile,ValidN,ReferenceMean,ReferenceSD,ReferenceScope
+csv.scores.1=<normalised>,00-blobs-8bit.tif,1,1.0,Volume,27.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.2=<normalised>,00-blobs-8bit.tif,1,2.0,Volume,64.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.3=<normalised>,00-blobs-8bit.tif,1,3.0,Volume,125.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.4=<normalised>,01-blobs-16bit.tif,2,1.0,Volume,27.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.5=<normalised>,01-blobs-16bit.tif,2,2.0,Volume,64.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.6=<normalised>,01-blobs-16bit.tif,2,3.0,Volume,125.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.7=<normalised>,02-sphere-solid.tif,3,1.0,Volume,924.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.8=<normalised>,00-blobs-8bit.tif,1,1.0,Surface,54.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.9=<normalised>,00-blobs-8bit.tif,1,2.0,Surface,96.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.10=<normalised>,00-blobs-8bit.tif,1,3.0,Surface,150.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.11=<normalised>,01-blobs-16bit.tif,2,1.0,Surface,54.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.12=<normalised>,01-blobs-16bit.tif,2,2.0,Surface,96.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.13=<normalised>,01-blobs-16bit.tif,2,3.0,Surface,150.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.14=<normalised>,02-sphere-solid.tif,3,1.0,Surface,684.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.15=<normalised>,00-blobs-8bit.tif,1,1.0,Nb of obj. voxels,27.0,voxel,27.0,voxel,-0.5548345450403551,14.285714285714286,7,193.71428571428572,300.4756773069348,all successful objects in this BatchRunId
+csv.scores.16=<normalised>,00-blobs-8bit.tif,1,2.0,Nb of obj. voxels,64.0,voxel,64.0,voxel,-0.4316964583518787,42.857142857142854,7,193.71428571428572,300.4756773069348,all successful objects in this BatchRunId
+csv.scores.17=<normalised>,00-blobs-8bit.tif,1,3.0,Nb of obj. voxels,125.0,voxel,125.0,voxel,-0.2286850181357419,71.42857142857143,7,193.71428571428572,300.4756773069348,all successful objects in this BatchRunId
+csv.scores.18=<normalised>,01-blobs-16bit.tif,2,1.0,Nb of obj. voxels,27.0,voxel,27.0,voxel,-0.5548345450403551,14.285714285714286,7,193.71428571428572,300.4756773069348,all successful objects in this BatchRunId
+csv.scores.19=<normalised>,01-blobs-16bit.tif,2,2.0,Nb of obj. voxels,64.0,voxel,64.0,voxel,-0.4316964583518787,42.857142857142854,7,193.71428571428572,300.4756773069348,all successful objects in this BatchRunId
+csv.scores.20=<normalised>,01-blobs-16bit.tif,2,3.0,Nb of obj. voxels,125.0,voxel,125.0,voxel,-0.2286850181357419,71.42857142857143,7,193.71428571428572,300.4756773069348,all successful objects in this BatchRunId
+csv.scores.21=<normalised>,02-sphere-solid.tif,3,1.0,Nb of obj. voxels,924.0,voxel,924.0,voxel,2.430432043055951,92.85714285714286,7,193.71428571428572,300.4756773069348,all successful objects in this BatchRunId
+csv.scores.22=<normalised>,00-blobs-8bit.tif,1,1.0,Nb of surf. voxels,26.0,voxel,26.0,voxel,-0.7084935786800244,14.285714285714286,7,102.85714285714286,108.47966046542493,all successful objects in this BatchRunId
+csv.scores.23=<normalised>,00-blobs-8bit.tif,1,2.0,Nb of surf. voxels,56.0,voxel,56.0,voxel,-0.43194404053354646,42.857142857142854,7,102.85714285714286,108.47966046542493,all successful objects in this BatchRunId
+csv.scores.24=<normalised>,00-blobs-8bit.tif,1,3.0,Nb of surf. voxels,98.0,voxel,98.0,voxel,-0.04477468712847741,71.42857142857143,7,102.85714285714286,108.47966046542493,all successful objects in this BatchRunId
+csv.scores.25=<normalised>,01-blobs-16bit.tif,2,1.0,Nb of surf. voxels,26.0,voxel,26.0,voxel,-0.7084935786800244,14.285714285714286,7,102.85714285714286,108.47966046542493,all successful objects in this BatchRunId
+csv.scores.26=<normalised>,01-blobs-16bit.tif,2,2.0,Nb of surf. voxels,56.0,voxel,56.0,voxel,-0.43194404053354646,42.857142857142854,7,102.85714285714286,108.47966046542493,all successful objects in this BatchRunId
+csv.scores.27=<normalised>,01-blobs-16bit.tif,2,3.0,Nb of surf. voxels,98.0,voxel,98.0,voxel,-0.04477468712847741,71.42857142857143,7,102.85714285714286,108.47966046542493,all successful objects in this BatchRunId
+csv.scores.28=<normalised>,02-sphere-solid.tif,3,1.0,Nb of surf. voxels,360.0,voxel,360.0,voxel,2.3704246126840958,92.85714285714286,7,102.85714285714286,108.47966046542493,all successful objects in this BatchRunId
+csv.scores.29=<normalised>,00-blobs-8bit.tif,1,1.0,Morph_Sphericity,1.2741900216184983,unitless,1.2741900216184983,unitless,1.3557853723925002,85.71428571428571,7,1.160233607186332,0.0840519574503684,all successful objects in this BatchRunId
+csv.scores.30=<normalised>,00-blobs-8bit.tif,1,2.0,Morph_Sphericity,1.1663352536115117,unitless,1.1663352536115117,unitless,0.07259374570524052,57.142857142857146,7,1.160233607186332,0.0840519574503684,all successful objects in this BatchRunId
+csv.scores.31=<normalised>,00-blobs-8bit.tif,1,3.0,Morph_Sphericity,1.106614425337798,unitless,1.106614425337798,unitless,-0.6379290081399389,28.571428571428573,7,1.160233607186332,0.0840519574503684,all successful objects in this BatchRunId
+csv.scores.32=<normalised>,01-blobs-16bit.tif,2,1.0,Morph_Sphericity,1.2741900216184983,unitless,1.2741900216184983,unitless,1.3557853723925002,85.71428571428571,7,1.160233607186332,0.0840519574503684,all successful objects in this BatchRunId
+csv.scores.33=<normalised>,01-blobs-16bit.tif,2,2.0,Morph_Sphericity,1.1663352536115117,unitless,1.1663352536115117,unitless,0.07259374570524052,57.142857142857146,7,1.160233607186332,0.0840519574503684,all successful objects in this BatchRunId
+csv.scores.34=<normalised>,01-blobs-16bit.tif,2,3.0,Morph_Sphericity,1.106614425337798,unitless,1.106614425337798,unitless,-0.6379290081399389,28.571428571428573,7,1.160233607186332,0.0840519574503684,all successful objects in this BatchRunId
+csv.scores.35=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Sphericity,1.0273558491687074,unitless,1.0273558491687074,unitless,-1.5809002199156061,7.142857142857143,7,1.160233607186332,0.0840519574503684,all successful objects in this BatchRunId
+csv.scores.36=<normalised>,00-blobs-8bit.tif,1,1.0,Morph_Compactness,2.0687242205978604,unitless,2.0687242205978604,unitless,1.4053401187331773,85.71428571428571,7,1.5864731004676946,0.34315616106148294,all successful objects in this BatchRunId
+csv.scores.37=<normalised>,00-blobs-8bit.tif,1,2.0,Morph_Compactness,1.586610077372494,unitless,1.586610077372494,unitless,3.991678435138774E-4,57.142857142857146,7,1.5864731004676946,0.34315616106148294,all successful objects in this BatchRunId
+csv.scores.38=<normalised>,00-blobs-8bit.tif,1,3.0,Morph_Compactness,1.3551550304158482,unitless,1.3551550304158482,unitless,-0.6740898060414,28.571428571428573,7,1.5864731004676946,0.34315616106148294,all successful objects in this BatchRunId
+csv.scores.39=<normalised>,01-blobs-16bit.tif,2,1.0,Morph_Compactness,2.0687242205978604,unitless,2.0687242205978604,unitless,1.4053401187331773,85.71428571428571,7,1.5864731004676946,0.34315616106148294,all successful objects in this BatchRunId
+csv.scores.40=<normalised>,01-blobs-16bit.tif,2,2.0,Morph_Compactness,1.586610077372494,unitless,1.586610077372494,unitless,3.991678435138774E-4,57.142857142857146,7,1.5864731004676946,0.34315616106148294,all successful objects in this BatchRunId
+csv.scores.41=<normalised>,01-blobs-16bit.tif,2,3.0,Morph_Compactness,1.3551550304158482,unitless,1.3551550304158482,unitless,-0.6740898060414,28.571428571428573,7,1.5864731004676946,0.34315616106148294,all successful objects in this BatchRunId
+csv.scores.42=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Compactness,1.084333046501458,unitless,1.084333046501458,unitless,-1.46329896107058,7.142857142857143,7,1.5864731004676946,0.34315616106148294,all successful objects in this BatchRunId
+csv.scores.43=<normalised>,00-blobs-8bit.tif,1,1.0,Morph_Elongation,1.0,unitless,1.0,unitless,NaN,50.0,7,1.0,0.0,all successful objects in this BatchRunId
+csv.scores.44=<normalised>,00-blobs-8bit.tif,1,2.0,Morph_Elongation,1.0,unitless,1.0,unitless,NaN,50.0,7,1.0,0.0,all successful objects in this BatchRunId
+csv.scores.45=<normalised>,00-blobs-8bit.tif,1,3.0,Morph_Elongation,1.0,unitless,1.0,unitless,NaN,50.0,7,1.0,0.0,all successful objects in this BatchRunId
+csv.scores.46=<normalised>,01-blobs-16bit.tif,2,1.0,Morph_Elongation,1.0,unitless,1.0,unitless,NaN,50.0,7,1.0,0.0,all successful objects in this BatchRunId
+csv.scores.47=<normalised>,01-blobs-16bit.tif,2,2.0,Morph_Elongation,1.0,unitless,1.0,unitless,NaN,50.0,7,1.0,0.0,all successful objects in this BatchRunId
+csv.scores.48=<normalised>,01-blobs-16bit.tif,2,3.0,Morph_Elongation,1.0,unitless,1.0,unitless,NaN,50.0,7,1.0,0.0,all successful objects in this BatchRunId
+csv.scores.49=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Elongation,1.0,unitless,1.0,unitless,NaN,50.0,7,1.0,0.0,all successful objects in this BatchRunId
+csv.scores.50=<normalised>,00-blobs-8bit.tif,1,1.0,Morph_Feret3D_um,3.4641016151377553,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.51=<normalised>,00-blobs-8bit.tif,1,2.0,Morph_Feret3D_um,5.196152422706634,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.52=<normalised>,00-blobs-8bit.tif,1,3.0,Morph_Feret3D_um,6.928203230275514,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.53=<normalised>,01-blobs-16bit.tif,2,1.0,Morph_Feret3D_um,3.4641016151377553,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.54=<normalised>,01-blobs-16bit.tif,2,2.0,Morph_Feret3D_um,5.196152422706634,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.55=<normalised>,01-blobs-16bit.tif,2,3.0,Morph_Feret3D_um,6.928203230275514,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.56=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Feret3D_um,12.0,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.lines=57

@@ -1,0 +1,8 @@
+# Equivalence-harness goldens are immutable reference data captured from a named
+# pre-migration build. Keep their bytes exactly as written: line-ending
+# normalisation would rewrite a file that is supposed to never change, and make
+# "the golden set is unmodified" harder to state than it should be.
+#
+# The harness parses on \R and so tolerates either ending; this is about the
+# artifact being byte-stable, not about the parser.
+*.golden -text

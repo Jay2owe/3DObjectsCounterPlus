@@ -1,0 +1,51 @@
+# oc3dplus-equivalence-goldens v1
+# build=e6d0e2e fixture=batch-mixed-units records=1
+# Immutable. Never regenerate a golden to make a diff disappear.
+[record fixture=batch-mixed-units case=A config=batch]
+note=Batch CSV outputs. BatchRunId, SourceLastModified and PluginVersion are blanked; every remaining line is Tier 1.
+config.fractal=false
+config.composites=false
+config.arborization=false
+config.mixedUnits=true
+config.inputs=sphere-iso-um sphere-aniso-z5 sphere-solid
+outcome=ok
+inputCount=3
+successfulCount=3
+failedCount=0
+objectCount=3
+csv.manifest.0=<normalised>,SourceRelativePath,<normalised>,Status,Error,ObjectCount,ContributedScoreRows,PixelWidth,PixelHeight,PixelDepth,SpatialUnit,MacroOptions,FractalXYEnabled,CompositesEnabled,ArborizationEnabled,ArborizationBackend,<normalised>
+csv.manifest.1=<normalised>,00-sphere-iso-um.tif,<normalised>,success,Volume scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Surface scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Morph_Feret3D_um scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Within-batch z-score unavailable for constant feature Nb of obj. voxels; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Nb of surf. voxels; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Morph_Sphericity; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Morph_Compactness; tied finite values receive percentile 50.,1,8,0.5,0.5,0.5,µm,threshold=100 min=1 max=Infinity,false,false,false,,<normalised>
+csv.manifest.2=<normalised>,01-sphere-aniso-z5.tif,<normalised>,success,Volume scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Surface scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Morph_Feret3D_um scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Within-batch z-score unavailable for constant feature Nb of obj. voxels; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Nb of surf. voxels; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Morph_Sphericity; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Morph_Compactness; tied finite values receive percentile 50.,1,8,0.2,0.2,1.0,µm,threshold=100 min=1 max=Infinity,false,false,false,,<normalised>
+csv.manifest.3=<normalised>,02-sphere-solid.tif,<normalised>,success,Volume scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Surface scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Morph_Feret3D_um scores were excluded because spatial unit 'pixel' cannot be converted to micrometres. / Volume scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Surface scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Morph_Feret3D_um scores were excluded across the batch because at least one successful image had an absent or incompatible spatial unit. / Within-batch z-score unavailable for constant feature Nb of obj. voxels; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Nb of surf. voxels; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Morph_Sphericity; tied finite values receive percentile 50. / Within-batch z-score unavailable for constant feature Morph_Compactness; tied finite values receive percentile 50.,1,8,1.0,1.0,1.0,pixel,threshold=100 min=1 max=Infinity,false,false,false,,<normalised>
+csv.manifest.lines=4
+csv.objects.0=<normalised>,SourceRelativePath,SourceImageIndex,SourceObjectLabel,Volume (µm^3),Surface (µm^2),Nb of obj. voxels,Nb of surf. voxels,IntDen,Mean,StdDev,Median,Min,Max,X,Y,Z,XM,YM,ZM,BX,BY,BZ,B-width,B-height,B-depth,Label,Morph_Sphericity,Morph_Compactness,Morph_Elongation,Morph_Feret3D_um,Volume (pixel^3),Surface (pixel^2)
+csv.objects.1=<normalised>,00-sphere-iso-um.tif,1,1.0,115.5,171.0,924.0,360.0,184800.0,200.0,0.0,200.0,200.0,200.0,10.0,10.0,10.0,10.0,10.0,10.0,4.0,4.0,4.0,13.0,13.0,13.0,1.0,1.0273558491687074,1.084333046501458,1.0,6.0,,
+csv.objects.2=<normalised>,01-sphere-aniso-z5.tif,2,1.0,36.96000000000001,100.3200912475586,924.0,360.0,184800.0,200.0,0.0,200.0,200.0,200.0,10.0,10.0,10.0,10.0,10.0,10.0,4.0,4.0,4.0,13.0,13.0,13.0,1.0,1.0273558491687074,1.084333046501458,4.999999999999822,12.0,,
+csv.objects.3=<normalised>,02-sphere-solid.tif,3,1.0,,,924.0,360.0,184800.0,200.0,0.0,200.0,200.0,200.0,10.0,10.0,10.0,10.0,10.0,10.0,4.0,4.0,4.0,13.0,13.0,13.0,1.0,1.0273558491687074,1.084333046501458,1.0,12.0,924.0,684.0
+csv.objects.lines=4
+csv.scores.0=<normalised>,SourceRelativePath,SourceImageIndex,SourceObjectLabel,Feature,RawValue,RawUnit,ScoringValue,ScoringUnit,WithinBatchZ,WithinBatchPercentile,ValidN,ReferenceMean,ReferenceSD,ReferenceScope
+csv.scores.1=<normalised>,00-sphere-iso-um.tif,1,1.0,Volume,115.5,µm^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.2=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Volume,36.96000000000001,µm^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.3=<normalised>,02-sphere-solid.tif,3,1.0,Volume,924.0,pixel^3,NaN,um^3,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.4=<normalised>,00-sphere-iso-um.tif,1,1.0,Surface,171.0,µm^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.5=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Surface,100.3200912475586,µm^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.6=<normalised>,02-sphere-solid.tif,3,1.0,Surface,684.0,pixel^2,NaN,um^2,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.7=<normalised>,00-sphere-iso-um.tif,1,1.0,Nb of obj. voxels,924.0,voxel,924.0,voxel,NaN,50.0,3,924.0,0.0,all successful objects in this BatchRunId
+csv.scores.8=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Nb of obj. voxels,924.0,voxel,924.0,voxel,NaN,50.0,3,924.0,0.0,all successful objects in this BatchRunId
+csv.scores.9=<normalised>,02-sphere-solid.tif,3,1.0,Nb of obj. voxels,924.0,voxel,924.0,voxel,NaN,50.0,3,924.0,0.0,all successful objects in this BatchRunId
+csv.scores.10=<normalised>,00-sphere-iso-um.tif,1,1.0,Nb of surf. voxels,360.0,voxel,360.0,voxel,NaN,50.0,3,360.0,0.0,all successful objects in this BatchRunId
+csv.scores.11=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Nb of surf. voxels,360.0,voxel,360.0,voxel,NaN,50.0,3,360.0,0.0,all successful objects in this BatchRunId
+csv.scores.12=<normalised>,02-sphere-solid.tif,3,1.0,Nb of surf. voxels,360.0,voxel,360.0,voxel,NaN,50.0,3,360.0,0.0,all successful objects in this BatchRunId
+csv.scores.13=<normalised>,00-sphere-iso-um.tif,1,1.0,Morph_Sphericity,1.0273558491687074,unitless,1.0273558491687074,unitless,NaN,50.0,3,1.0273558491687074,0.0,all successful objects in this BatchRunId
+csv.scores.14=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Morph_Sphericity,1.0273558491687074,unitless,1.0273558491687074,unitless,NaN,50.0,3,1.0273558491687074,0.0,all successful objects in this BatchRunId
+csv.scores.15=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Sphericity,1.0273558491687074,unitless,1.0273558491687074,unitless,NaN,50.0,3,1.0273558491687074,0.0,all successful objects in this BatchRunId
+csv.scores.16=<normalised>,00-sphere-iso-um.tif,1,1.0,Morph_Compactness,1.084333046501458,unitless,1.084333046501458,unitless,NaN,50.0,3,1.084333046501458,0.0,all successful objects in this BatchRunId
+csv.scores.17=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Morph_Compactness,1.084333046501458,unitless,1.084333046501458,unitless,NaN,50.0,3,1.084333046501458,0.0,all successful objects in this BatchRunId
+csv.scores.18=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Compactness,1.084333046501458,unitless,1.084333046501458,unitless,NaN,50.0,3,1.084333046501458,0.0,all successful objects in this BatchRunId
+csv.scores.19=<normalised>,00-sphere-iso-um.tif,1,1.0,Morph_Elongation,1.0,unitless,1.0,unitless,-0.7071067811865475,33.333333333333336,3,2.333333333333274,1.885618083164043,all successful objects in this BatchRunId
+csv.scores.20=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Morph_Elongation,4.999999999999822,unitless,4.999999999999822,unitless,1.4142135623730951,83.33333333333333,3,2.333333333333274,1.885618083164043,all successful objects in this BatchRunId
+csv.scores.21=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Elongation,1.0,unitless,1.0,unitless,-0.7071067811865475,33.333333333333336,3,2.333333333333274,1.885618083164043,all successful objects in this BatchRunId
+csv.scores.22=<normalised>,00-sphere-iso-um.tif,1,1.0,Morph_Feret3D_um,6.0,µm,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.23=<normalised>,01-sphere-aniso-z5.tif,2,1.0,Morph_Feret3D_um,12.0,µm,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.24=<normalised>,02-sphere-solid.tif,3,1.0,Morph_Feret3D_um,12.0,pixel,NaN,um,NaN,NaN,0,NaN,NaN,all successful objects in this BatchRunId
+csv.scores.lines=25

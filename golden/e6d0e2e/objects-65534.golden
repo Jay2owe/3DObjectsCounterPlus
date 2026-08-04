@@ -1,0 +1,41 @@
+# oc3dplus-equivalence-goldens v1
+# build=e6d0e2e fixture=objects-65534 records=1
+# Immutable. Never regenerate a golden to make a diff disappear.
+[record fixture=objects-65534 case=A config=default]
+note=ShortProcessor to FloatProcessor label-image boundary. MINIMAL sweep: the default configuration only, because the object count makes the full sweep disproportionately expensive.
+config.threshold=100
+config.minSize=1
+config.maxSize=Infinity
+config.excludeOnEdges=false
+config.redirect=false
+config.maps=false
+config.fractal=false
+config.composites=false
+config.arborization=false
+config.filters=
+sweep=MINIMAL
+input.dims=256x256x8
+input.bitDepth=8
+input.channels=1
+input.frames=1
+input.calibration=pixel 1.0/1.0/1.0
+outcome=ok
+objectCount=65534
+foundObjects=true
+survivingPerFilter=
+filterLabels=
+warnings.count=0
+stats.rowCount=65534
+stats.rowDigest=7b1c4a136742c56bca022f0b8d793f94aa04808398c58b48824293b3f3dcd381
+stats.rowCapNotice=rows replaced by stats.rowDigest above 2000 objects; any cell change is still detected, but per-column tolerance and per-object diagnosis are not applied here
+label.dims=256x256x8
+label.present=true
+label.bitDepth=16
+label.digest=9cb47f0555de0b524bb6842fa35ef15defd61ea77cd8320966299429aa48b2f3
+label.partition=7e966247e7b5944cda8644b4ac4801eff94904f028179d5c269df0cb9be781ff
+label.distinct=65534
+label.dense=true
+label.max=65534
+label.rle=omitted(exceeds 20000 runs)
+summary=objects-65534: 65534 objects detected (Size filter set to 1-Infinity voxels, threshold set to: 100). Morphology means: Size=1, Volume=1, Surface area=6, Mean intensity=200, Max intensity=200, Max Feret diameter=0.
+stats.columns=Volume (pixel^3)|Surface (pixel^2)|Nb of obj. voxels|Nb of surf. voxels|IntDen|Mean|StdDev|Median|Min|Max|X|Y|Z|XM|YM|ZM|BX|BY|BZ|B-width|B-height|B-depth|Label|Morph_Sphericity|Morph_Compactness|Morph_Elongation|Morph_Feret3D_um
