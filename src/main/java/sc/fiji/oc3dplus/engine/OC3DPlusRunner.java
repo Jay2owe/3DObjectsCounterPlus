@@ -476,28 +476,13 @@ public final class OC3DPlusRunner {
         labelImage.setProperty(PREDICATE_LABELS_PROPERTY, result.getPredicateLabels());
     }
 
-    /**
-     * Append the extra statistics columns that this runner exposes for
-     * referenced morph features: sphericity, compactness, elongation, maximum
-     * Feret diameter, and maximum intensity. Returns a copied table; the input
-     * table is not mutated.
-     */
-    public static ResultsTable appendReferencedMorphColumns(ImagePlus labelImage,
-                                                            ImagePlus intensityImage,
-                                                            ResultsTable stats,
-                                                            List<MorphPredicate> predicates,
-                                                            OC3DPlusParameters.WarningSink warningSink) {
-        ResultsTable safeStats = stats == null ? new ResultsTable() : copyOf(stats);
-        appendEmptyMorphologyColumns(safeStats);
-        if (labelImage == null || safeStats.size() == 0) {
-            return safeStats;
-        }
-        FeatureContext featureContext = new FeatureContext(predicates,
-                intensityImage, OC3DPlusMeasurements.NONE, warningSink);
-        Map<Integer, FeatureValues> features = computeFeaturesByLabel(labelImage, featureContext);
-        appendEmptyExtendedColumns(safeStats, featureContext);
-        return appendReferencedMorphColumnsToStats(safeStats, featureContext, features);
-    }
+    // appendReferencedMorphColumns(ImagePlus, ImagePlus, ResultsTable, List, WarningSink)
+    // was removed in Stage 03 of the oc3d-core migration. It had zero call sites in
+    // main or test bytecode - 18 014 call edges across 268 classes were searched -
+    // so it was dead before the migration touched anything, not made dead by it.
+    // See docs/migration/STAGE03_FINDINGS.md section 1; the same search found that
+    // remapFeatures and buildFilteredStatsFromDetectedStats are still reachable from
+    // the morphology-filter branch and were therefore kept.
 
     private static ResultsTable appendReferencedMorphColumnsFromFeatures(
             ResultsTable stats,

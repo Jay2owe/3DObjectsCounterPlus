@@ -330,6 +330,27 @@ public final class Differ {
         }
     }
 
+    /**
+     * Is this added column a decision already recorded in TOLERANCES.md, rather
+     * than an unexplained schema change?
+     *
+     * <p>Deliberately narrow: both the column name and the cases are pinned, so
+     * every other added column - and every removed column, without exception -
+     * stays Tier 1. This is not a tolerance and cannot be widened into one; it
+     * records that a specific, user-decided addition was expected.
+     *
+     * <p>The single entry is {@code Median} on Cases B and C. TOLERANCES.md §4
+     * records the user's decision to implement a per-object median rather than
+     * lose the column from Case A output. Once one engine measures every input
+     * shape there is one column set, and since Case A must not move that set is
+     * Case A's - so B and C gain the column A already had. Additive: no column is
+     * lost anywhere, which is why it is separable from a removal.
+     */
+    private static boolean isDeclaredAddition(String column, HarnessCase harnessCase) {
+        return "Median".equals(column)
+                && (harnessCase == HarnessCase.B || harnessCase == HarnessCase.C);
+    }
+
     private static void diffColumns(CaptureRecord golden, CaptureRecord candidate, Report report) {
         List<String> goldenColumns = golden.columns();
         List<String> candidateColumns = candidate.columns();
@@ -340,10 +361,16 @@ public final class Differ {
             }
         }
         for (int i = 0; i < candidateColumns.size(); i++) {
-            if (!goldenColumns.contains(candidateColumns.get(i))) {
-                report.add(1, golden.id(), "column added",
-                        "'" + candidateColumns.get(i) + "' is in the candidate and not in the golden");
+            String added = candidateColumns.get(i);
+            if (goldenColumns.contains(added)) continue;
+            if (isDeclaredAddition(added, golden.harnessCase)) {
+                report.add(3, golden.id(), "column added (declared)",
+                        "'" + added + "' is a signed-off addition for case "
+                                + golden.harnessCase + "; see TOLERANCES.md section 4");
+                continue;
             }
+            report.add(1, golden.id(), "column added",
+                    "'" + added + "' is in the candidate and not in the golden");
         }
         if (!goldenColumns.equals(candidateColumns)
                 && goldenColumns.size() == candidateColumns.size()) {
