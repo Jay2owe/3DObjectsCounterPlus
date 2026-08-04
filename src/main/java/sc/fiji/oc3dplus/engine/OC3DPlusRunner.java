@@ -170,15 +170,18 @@ public final class OC3DPlusRunner {
         }
     }
 
+    /**
+     * Detection output. The {@code classic} flag that used to live here recorded
+     * which of two engines produced the result; with one engine there is nothing
+     * for it to distinguish.
+     */
     private static final class DetectionResult {
         final ResultsTable statistics;
         final ImagePlus labelImage;
-        final boolean classic;
 
-        DetectionResult(ResultsTable statistics, ImagePlus labelImage, boolean classic) {
+        DetectionResult(ResultsTable statistics, ImagePlus labelImage) {
             this.statistics = statistics == null ? new ResultsTable() : statistics;
             this.labelImage = labelImage;
-            this.classic = classic;
         }
     }
 
@@ -308,9 +311,7 @@ public final class OC3DPlusRunner {
         boolean returningLabel = false;
 
         try {
-            DetectionResult detected = canUseClassicCounter(channelImage, safe)
-                    ? detectWithClassicCounter(channelImage, safe, counterBackend, progress)
-                    : detectWithNativeCounter(channelImage, safe, counterBackend, progress);
+            DetectionResult detected = detect(channelImage, safe, progress);
 
             labelImage = detected.labelImage;
             if (labelImage == null) {
@@ -388,58 +389,138 @@ public final class OC3DPlusRunner {
         }
     }
 
-    private static DetectionResult detectWithClassicCounter(ImagePlus channelImage,
-                                                            OC3DPlusParameters safe,
-                                                            CounterBackend counterBackend,
-                                                            ProgressReporter progress) {
+    /**
+     * Detect and measure, on one path for every input shape.
+     *
+     * <p>This replaces the two engines the plugin used to route between: the
+     * classic {@code Counter3D} for 8- or 16-bit single volumes, and mcib3d for
+     * everything else. The routing predicate is gone, and with it the fall-through
+     * to the path the code itself described as <i>crash-prone</i>.
+     *
+     * <p><b>Hyperstacks measure one channel and one frame.</b> The old mcib3d call
+     * handed the whole stack to {@code ImageHandler.wrap}, which reads
+     * {@code nSlices} planes and silently ignores the rest - measured at one plane
+     * out of 202 on a 2-channel 101-frame timelapse. Neither keeping that nor
+     * flattening every plane into a single z-series is defensible: a channel is a
+     * separate signal and a frame a separate time point, so objects must not be
+     * connected across either. The volume is therefore selected explicitly, from
+     * {@link OC3DPlusParameters#channel} and {@link OC3DPlusParameters#frame},
+     * defaulting to whatever the image is currently showing.
+     *
+     * <p>For a plain 3D stack - one channel, one frame, which is what the great
+     * majority of inputs are - the selection is the identity and nothing about
+     * this path differs from measuring the stack directly.
+     */
+    private static DetectionResult detect(ImagePlus channelImage,
+                                         OC3DPlusParameters safe,
+                                         ProgressReporter progress) {
         ProgressReporter safeProgress = progress == null ? ProgressReporter.none() : progress;
-        safeProgress.step("Finding structures with classic 3D OC");
-        ObjectsCounter3DWrapper.Result detected = counterBackend.run(
-                channelImage,
-                safe.threshold,
-                safe.minSize,
-                safe.maxSize,
-                safe.excludeOnEdges,
-                false,
-                true,
-                false);
-        safeProgress.finishStep();
-        return new DetectionResult(
-                detected == null ? null : detected.getStatistics(),
-                detected == null ? null : detected.getObjectsMap(),
-                true);
+        safeProgress.step("Finding structures");
+
+        ImagePlus volume = volumeToMeasure(channelImage, safe);
+        boolean volumeIsCopy = volume != channelImage;
+        ImagePlus labelImage = null;
+        try {
+            sc.fiji.oc3d.core.label.LabelResult labelled =
+                    sc.fiji.oc3d.core.label.StreamingLabeller.label(
+                            volume,
+                            new sc.fiji.oc3d.core.label.LabelParameters()
+                                    .threshold(safe.threshold)
+                                    .minSize(safe.minSize)
+                                    .maxSize(safe.maxSize)
+                                    .excludeOnEdges(safe.excludeOnEdges)
+                                    .connectivity(
+                                            sc.fiji.oc3d.core.label.Connectivity.TWENTY_SIX));
+            labelImage = labelled.labelImage();
+            safeProgress.finishStep();
+
+            safeProgress.step("Measuring " + labelled.objectCount() + " object"
+                    + (labelled.objectCount() == 1 ? "" : "s"));
+            // The intensity source follows the same volume selection, so a redirect
+            // is measured inside the objects of the channel it was asked about.
+            ImagePlus intensitySource = intensityVolumeFor(volume, channelImage, safe);
+            boolean intensityIsCopy = intensitySource != volume
+                    && intensitySource != channelImage
+                    && intensitySource != safe.intensityImage;
+            ResultsTable stats;
+            try {
+                stats = sc.fiji.oc3d.core.measure.LabelFeatureAccumulator.scan(
+                        labelImage,
+                        intensitySource,
+                        volume.getCalibration()).toStatisticsTable();
+            } finally {
+                if (intensityIsCopy) discard(intensitySource);
+            }
+            safeProgress.finishStep();
+
+            ImagePlus produced = labelImage;
+            labelImage = null;
+            return new DetectionResult(stats, produced);
+        } finally {
+            discard(labelImage);
+            if (volumeIsCopy) discard(volume);
+        }
     }
 
-    private static DetectionResult detectWithNativeCounter(ImagePlus channelImage,
-                                                           OC3DPlusParameters safe,
-                                                           CounterBackend counterBackend,
-                                                           ProgressReporter progress) {
-        ObjectsCounter3DWrapper.Result detected = counterBackend.runNative(
-                channelImage,
-                safe.threshold,
-                safe.minSize,
-                safe.maxSize,
-                safe.excludeOnEdges,
-                safe.intensityImage,
-                true,
-                false,
-                progress,
-                false);
-        return new DetectionResult(
-                detected == null ? null : detected.getStatistics(),
-                detected == null ? null : detected.getObjectsMap(),
-                false);
-    }
-
-    private static boolean canUseClassicCounter(ImagePlus image, OC3DPlusParameters params) {
-        if (image == null || params == null) return false;
-        // Redirect changes intensity measurement only; it must not force the
-        // crash-prone native mcib3d detection path for compatible source stacks.
-        int bitDepth = image.getBitDepth();
-        if (bitDepth != 8 && bitDepth != 16) return false;
+    /**
+     * The single 3D volume to label: the whole stack when there is only one
+     * channel and one frame, otherwise the selected one extracted as a copy.
+     */
+    private static ImagePlus volumeToMeasure(ImagePlus image, OC3DPlusParameters safe) {
         int channels = Math.max(1, image.getNChannels());
         int frames = Math.max(1, image.getNFrames());
-        return channels == 1 && frames == 1;
+        if (channels == 1 && frames == 1) return image;
+        int channel = resolvePosition(safe.channel, image.getC(), channels);
+        int frame = resolvePosition(safe.frame, image.getT(), frames);
+        if (safe.warningSink != null) {
+            safe.warningSink.warn("'" + titleOf(image) + "' has " + channels
+                    + " channel" + (channels == 1 ? "" : "s") + " and " + frames
+                    + " frame" + (frames == 1 ? "" : "s")
+                    + "; measuring channel " + channel + ", frame " + frame
+                    + " only. Objects are never connected across channels or time.");
+        }
+        return sc.fiji.oc3d.core.label.LabelImages.volumeOf(image, channel, frame);
+    }
+
+    /**
+     * The intensity source matching {@code volume}, or {@code null} if none fits.
+     *
+     * <p>A redirect image is reduced by the same channel and frame selection, so
+     * its slice count matches the labelled volume rather than the whole stack.
+     */
+    private static ImagePlus intensityVolumeFor(ImagePlus volume,
+                                                ImagePlus channelImage,
+                                                OC3DPlusParameters safe) {
+        ImagePlus requested = safe.intensityImage == null ? channelImage : safe.intensityImage;
+        if (requested == null) return null;
+        if (requested == channelImage && volume != channelImage) {
+            // The selection already produced the right volume of this image.
+            return volume;
+        }
+        int channels = Math.max(1, requested.getNChannels());
+        int frames = Math.max(1, requested.getNFrames());
+        if (channels > 1 || frames > 1) {
+            int channel = resolvePosition(safe.channel, requested.getC(), channels);
+            int frame = resolvePosition(safe.frame, requested.getT(), frames);
+            ImagePlus reduced = sc.fiji.oc3d.core.label.LabelImages.volumeOf(
+                    requested, channel, frame);
+            return matchingIntensityImageOrNull(volume, reduced) == null
+                    ? discardAndReturnNull(reduced) : reduced;
+        }
+        return matchingIntensityImageOrNull(volume, requested);
+    }
+
+    private static ImagePlus discardAndReturnNull(ImagePlus image) {
+        discard(image);
+        return null;
+    }
+
+    /** Clamps a 1-based position, falling back to the image's own when unset. */
+    private static int resolvePosition(int requested, int current, int available) {
+        int chosen = requested == OC3DPlusParameters.USE_CURRENT_POSITION
+                ? Math.max(1, current) : requested;
+        if (chosen < 1) return 1;
+        return chosen > available ? available : chosen;
     }
 
     private static ImagePlus matchingIntensityImageOrNull(ImagePlus labelImage,

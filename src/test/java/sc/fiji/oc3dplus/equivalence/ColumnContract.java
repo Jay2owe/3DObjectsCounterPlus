@@ -222,19 +222,29 @@ public final class ColumnContract {
 
         // Case A's reference for these is a float field of Utilities.Object3D,
         // so bit-identity against a double replacement is unreachable.
-        String[] floatTyped = {"IntDen", "Mean", "StdDev", "X", "Y", "Z", "XM", "YM", "ZM"};
+        //
+        // StdDev is deliberately NOT in this list. It looks like a sibling of these
+        // and was originally declared as one, but the difference is not precision:
+        // Counter3D divides by n-1 and the accumulator by n, so the values differ by
+        // sqrt(n/(n-1)) - up to 29% on a two-voxel object. StdDevDefinitionProbeTest
+        // measures it; TOLERANCES.md sections 2 and 4 carry it as Tier 3.
+        String[] floatTyped = {"IntDen", "Mean", "X", "Y", "Z", "XM", "YM", "ZM"};
         for (int i = 0; i < floatTyped.length; i++) {
             out.add(entry(floatTyped[i], EnumSet.of(HarnessCase.A), 2, Rule.FLOAT_NARROW, Double.NaN));
             out.add(exact(floatTyped[i], EnumSet.of(HarnessCase.B, HarnessCase.C)));
         }
-        // Median exists on Case A alone: the classic path emits it from
-        // Utilities.Object3D.median and neither mcib3d nor either accumulator
-        // computes one. Its cell rule is float-narrow like its siblings, but the
-        // real issue is that Stage 03 has nothing to put in the column at all -
-        // which surfaces as a removed Tier 1 column, not as a cell difference.
-        // Deliberately no B or C entry: if the column ever appears there, the
-        // differ should report it as uncontracted.
+        // Sample versus population standard deviation, measured, not precision.
+        out.add(entry("StdDev", EnumSet.of(HarnessCase.A), 3, Rule.SIGNOFF, Double.NaN));
+        out.add(exact("StdDev", EnumSet.of(HarnessCase.B, HarnessCase.C)));
+
+        // Median came from the classic path alone before Stage 03 - mcib3d never
+        // emitted the column - and is now computed by the accumulator for every
+        // case, bit-identically to Utilities.Object3D.median. Its cell rule stays
+        // float-narrow on Case A alongside its siblings; on B and C the column is
+        // new, which diffColumns reports once as a declared addition.
         out.add(entry("Median", EnumSet.of(HarnessCase.A), 2, Rule.FLOAT_NARROW, Double.NaN));
+        out.add(entry("Median", EnumSet.of(HarnessCase.B, HarnessCase.C), 3, Rule.SIGNOFF,
+                Double.NaN));
 
         // Section 4 - Tier 3. Feret is Tier 3 on Case C only: Cases A and B
         // already report the 13-direction bounded estimate today.

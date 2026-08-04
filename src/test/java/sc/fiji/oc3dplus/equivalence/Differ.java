@@ -153,7 +153,10 @@ public final class Differ {
             "survivingPerFilter",
             "filterLabels",
             "warnings.count",
-            "summary",
+            // "summary" is compared by diffSummary instead: its structure at Tier 1,
+            // each morphology mean at the tier of the column it is a mean of. As a
+            // flat Tier 1 string it re-reported every declared column difference a
+            // second time.
             "label.present",
             "label.dims",
             "label.distinct",
@@ -231,6 +234,29 @@ public final class Differ {
         return report;
     }
 
+    /**
+     * Did a run that <b>crashed</b> in the shipped plugin now succeed?
+     *
+     * <p>TOLERANCES.md §4 records this as a signed-off Tier 3 item: {@code
+     * Counter3D.findObjects} sizes {@code IDcount} as {@code new int[tag]} with
+     * {@code tag} bumped at the start of the <i>next</i> voxel's iteration, so a
+     * foreground final voxel that starts a new object throws
+     * {@code ArrayIndexOutOfBoundsException}. The golden captured that crash
+     * deliberately, exception text and all, and the fix is by construction.
+     *
+     * <p>The direction is asymmetric on purpose. A golden that crashed and a
+     * candidate that completes is the declared fix. A golden that completed and a
+     * candidate that crashes is a Tier 1 regression and is never covered here.
+     * The exception type is pinned too, so an unrelated crash disappearing does
+     * not quietly pass through this door.
+     */
+    private static boolean isDeclaredCrashFix(CaptureRecord golden, CaptureRecord candidate) {
+        return "exception".equals(golden.get("outcome"))
+                && "ok".equals(candidate.get("outcome"))
+                && "java.lang.ArrayIndexOutOfBoundsException".equals(
+                        golden.get("exception.class"));
+    }
+
     static void diffRecord(CaptureRecord golden, CaptureRecord candidate, Report report) {
         String id = golden.id();
         if (golden.harnessCase != candidate.harnessCase) {
@@ -239,6 +265,17 @@ public final class Differ {
             return;
         }
         HarnessCase harnessCase = golden.harnessCase;
+
+        if (isDeclaredCrashFix(golden, candidate)) {
+            report.add(3, id, "crash fixed (declared)",
+                    "the golden records " + golden.get("exception.class")
+                            + " from the shipped Counter3D and the candidate completes"
+                            + " with " + candidate.get("objectCount") + " object(s);"
+                            + " see TOLERANCES.md section 4, 'Final-voxel isolated object'."
+                            + " Nothing further is comparable for this record: the golden"
+                            + " has no measurements to compare against");
+            return;
+        }
 
         for (int i = 0; i < INTEGRITY_SCALARS.size(); i++) {
             String key = INTEGRITY_SCALARS.get(i);
@@ -262,6 +299,7 @@ public final class Differ {
             }
         }
         diffWarningText(golden, candidate, report);
+        diffSummary(golden, candidate, report, harnessCase, depthOf(golden));
         diffCsvLines(golden, candidate, report);
 
         // Case A is compared by exact label equality, numbering included. Cases B
@@ -287,6 +325,128 @@ public final class Differ {
             report.add(1, golden.id(), key,
                     "golden=" + golden.get(key) + " candidate=" + candidate.get(key));
         }
+    }
+
+    /**
+     * The summary line's morphology means, mapped to the columns they are means of.
+     *
+     * @see sc.fiji.oc3d.core.io.SummaryReporter
+     */
+    private static final String[][] SUMMARY_FIELD_COLUMNS = {
+            {"Size", "Nb of obj. voxels"},
+            {"Volume", "Volume ("},
+            {"Surface area", "Surface ("},
+            {"Sphericity", "Morph_Sphericity"},
+            {"Compactness", "Morph_Compactness"},
+            {"Elongation", "Morph_Elongation"},
+            {"Mean intensity", "Mean"},
+            {"Max intensity", "Max"},
+            {"Max Feret diameter", "Morph_Feret3D_um"}
+    };
+
+    /**
+     * Compares the summary line, tiering each morphology mean as its own column.
+     *
+     * <p>The summary used to be a Tier 1 exact string, which double-counted every
+     * declared column difference: the single-slice surface divergence of
+     * TOLERANCES.md §0.3 is contracted as Tier 3, reported correctly as Tier 3 in
+     * the {@code Surface} column, and then reported <i>again</i> as a Tier 1
+     * summary mismatch purely because the mean is rendered into that sentence. All
+     * twelve {@code single-slice} configurations failed that way, on a difference
+     * already signed off.
+     *
+     * <p>This is not a loosening. The sentence's structure - object count, size
+     * filter, threshold, and which means are present and in what order - is still
+     * compared exactly at Tier 1. Only the numeric value of a mean is tiered, and
+     * it is tiered by the same contract, with the same bound, as the column it
+     * summarises. A value whose column is Tier 1 is still Tier 1 here.
+     */
+    private static void diffSummary(CaptureRecord golden,
+                                    CaptureRecord candidate,
+                                    Report report,
+                                    HarnessCase harnessCase,
+                                    int depth) {
+        String goldenText = golden.get("summary");
+        String candidateText = candidate.get("summary");
+        if (goldenText.equals(candidateText)) return;
+
+        String marker = "Morphology means: ";
+        int goldenMarker = goldenText.indexOf(marker);
+        int candidateMarker = candidateText.indexOf(marker);
+        if (goldenMarker < 0 || candidateMarker < 0) {
+            report.add(1, golden.id(), "summary",
+                    "golden=" + goldenText + " candidate=" + candidateText);
+            return;
+        }
+        if (!goldenText.substring(0, goldenMarker)
+                .equals(candidateText.substring(0, candidateMarker))) {
+            report.add(1, golden.id(), "summary preamble",
+                    "golden=" + goldenText.substring(0, goldenMarker)
+                            + " candidate=" + candidateText.substring(0, candidateMarker));
+            return;
+        }
+
+        Map<String, String> goldenMeans = parseMeans(goldenText.substring(goldenMarker + marker.length()));
+        Map<String, String> candidateMeans =
+                parseMeans(candidateText.substring(candidateMarker + marker.length()));
+        if (!new ArrayList<String>(goldenMeans.keySet())
+                .equals(new ArrayList<String>(candidateMeans.keySet()))) {
+            report.add(1, golden.id(), "summary fields",
+                    "golden=" + ColumnContract.join(new ArrayList<String>(goldenMeans.keySet()), ",")
+                            + " candidate="
+                            + ColumnContract.join(new ArrayList<String>(candidateMeans.keySet()), ","));
+            return;
+        }
+
+        for (Map.Entry<String, String> entry : goldenMeans.entrySet()) {
+            String field = entry.getKey();
+            String goldenValue = entry.getValue();
+            String candidateValue = candidateMeans.get(field);
+            if (goldenValue.equals(candidateValue)) continue;
+            String heading = headingForSummaryField(field, golden.columns());
+            ColumnContract.Entry contract = heading == null ? null
+                    : ColumnContract.lookup(heading, harnessCase);
+            if (contract == null) {
+                report.add(1, golden.id(), "summary mean '" + field + "'",
+                        "no column contract found; golden=" + goldenValue
+                                + " candidate=" + candidateValue);
+                continue;
+            }
+            compareCell(report, golden.id(), harnessCase, contract, heading,
+                    "summary mean '" + field + "'", goldenValue, candidateValue, depth);
+        }
+    }
+
+    /** Parses {@code "Size=36, Volume=36, ...."} preserving order. */
+    private static Map<String, String> parseMeans(String text) {
+        Map<String, String> out = new LinkedHashMap<String, String>();
+        String body = text.endsWith(".") ? text.substring(0, text.length() - 1) : text;
+        String[] parts = body.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i].trim();
+            if (part.isEmpty()) continue;
+            int equals = part.indexOf('=');
+            if (equals <= 0) {
+                out.put(part, "");
+                continue;
+            }
+            out.put(part.substring(0, equals).trim(), part.substring(equals + 1).trim());
+        }
+        return out;
+    }
+
+    /** The column heading a summary field is the mean of, resolving unit suffixes. */
+    private static String headingForSummaryField(String field, List<String> columns) {
+        for (int i = 0; i < SUMMARY_FIELD_COLUMNS.length; i++) {
+            if (!SUMMARY_FIELD_COLUMNS[i][0].equals(field)) continue;
+            String target = SUMMARY_FIELD_COLUMNS[i][1];
+            if (!target.endsWith("(")) return target;
+            for (int c = 0; c < columns.size(); c++) {
+                if (columns.get(c).startsWith(target)) return columns.get(c);
+            }
+            return null;
+        }
+        return null;
     }
 
     private static void diffWarningText(CaptureRecord golden, CaptureRecord candidate, Report report) {
@@ -412,7 +572,7 @@ public final class Differ {
                 String goldenCell = golden.cell(heading, goldenOrder.get(row).intValue());
                 String candidateCell = candidate.cell(heading, candidateOrder.get(row).intValue());
                 compareCell(report, golden.id(), harnessCase, contract, heading,
-                        row, goldenCell, candidateCell, depth);
+                        heading + " row " + row, goldenCell, candidateCell, depth);
             }
         }
     }
@@ -422,12 +582,11 @@ public final class Differ {
                                     HarnessCase harnessCase,
                                     ColumnContract.Entry contract,
                                     String heading,
-                                    int row,
+                                    String where,
                                     String goldenCell,
                                     String candidateCell,
                                     int depth) {
         if (goldenCell == null || candidateCell == null) return;
-        String where = heading + " row " + row;
         if (goldenCell.equals(candidateCell)) {
             recordDelta(report, harnessCase, contract, 0.0, false);
             return;
