@@ -17,6 +17,10 @@ import java.util.List;
  *   <li>{@code min=<int>} — minimum object voxel count, default 10.</li>
  *   <li>{@code max=<int|Infinity>} — maximum object voxel count, default Infinity.</li>
  *   <li>{@code exclude_edges} — flag, exclude objects touching image borders.</li>
+ *   <li>{@code channel=<int>} — which channel of a hyperstack to measure, 1-based;
+ *       0 (the default) means the image's current channel.</li>
+ *   <li>{@code frame=<int>} — which time point to measure, 1-based; 0 (the default)
+ *       means the image's current frame.</li>
  *   <li>{@code redirect=[image title]} — optional intensity-measurement source.</li>
  *   <li>{@code sphericity>=0.6}, {@code volume>=100}, ... - direct filter predicates.</li>
  *   <li>{@code hide_labels} - flag, suppress the object label map (default is to show it).</li>
@@ -71,6 +75,10 @@ public final class MacroOptionsParser {
         public final int minSize;
         public final int maxSize;
         public final boolean excludeOnEdges;
+        /** 1-based channel, or 0 for the image's current channel. */
+        public final int channel;
+        /** 1-based frame, or 0 for the image's current frame. */
+        public final int frame;
         public final boolean showLabels;
         public final boolean showSurfaces;
         public final boolean showCentroids;
@@ -87,6 +95,8 @@ public final class MacroOptionsParser {
                int minSize,
                int maxSize,
                boolean excludeOnEdges,
+               int channel,
+               int frame,
                boolean showLabels,
                boolean showSurfaces,
                boolean showCentroids,
@@ -102,6 +112,8 @@ public final class MacroOptionsParser {
             this.minSize = minSize;
             this.maxSize = maxSize;
             this.excludeOnEdges = excludeOnEdges;
+            this.channel = channel;
+            this.frame = frame;
             this.showLabels = showLabels;
             this.showSurfaces = showSurfaces;
             this.showCentroids = showCentroids;
@@ -125,6 +137,11 @@ public final class MacroOptionsParser {
         int minSize = parseIntOption(getValue(opts, "min", null), 10, "min");
         int maxSize = parseMaxSize(getValue(opts, "max", null));
         boolean excludeOnEdges = hasFlag(opts, "exclude_edges");
+        // 0 is not a clamp artefact here - it is the "use the image's current
+        // position" sentinel, which is what parseIntOption already returns for a
+        // non-positive value, so channel=0 and an absent channel= agree.
+        int channel = parseIntOption(getValue(opts, "channel", null), 0, "channel");
+        int frame = parseIntOption(getValue(opts, "frame", null), 0, "frame");
         boolean showLabels = !hasFlag(opts, "hide_labels");
         boolean showSurfaces = !hasFlag(opts, "hide_surfaces");
         boolean showCentroids = !hasFlag(opts, "hide_centroids");
@@ -139,7 +156,7 @@ public final class MacroOptionsParser {
 
         List<MorphPredicate> filters = parseDirectPredicates(opts);
 
-        return new Parsed(threshold, minSize, maxSize, excludeOnEdges,
+        return new Parsed(threshold, minSize, maxSize, excludeOnEdges, channel, frame,
                 showLabels, showSurfaces, showCentroids, showCentersOfMass,
                 showStats, showSummary, measureFractalXY, measureComposites,
                 measureArborization, redirect, filters);

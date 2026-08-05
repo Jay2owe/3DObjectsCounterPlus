@@ -35,6 +35,58 @@ public class MacroOptionsParserTest {
         assertTrue(p.showSummary);
         assertNull(p.redirectTitle);
         assertEquals(0, p.filters.size());
+        assertEquals(0, p.channel);
+        assertEquals(0, p.frame);
+    }
+
+    @Test
+    public void parsesChannelAndFrame() {
+        MacroOptionsParser.Parsed p = MacroOptionsParser.parse(
+                "threshold=10 channel=2 frame=7");
+        assertEquals(2, p.channel);
+        assertEquals(7, p.frame);
+    }
+
+    /**
+     * A written {@code channel=0} means the same as an absent one - "measure
+     * whichever channel the image is showing" - so a macro can say it out loud
+     * without changing what runs.
+     */
+    @Test
+    public void zeroAndNegativePositionsMeanTheCurrentPosition() {
+        MacroOptionsParser.Parsed explicitZero =
+                MacroOptionsParser.parse("threshold=10 channel=0 frame=0");
+        assertEquals(0, explicitZero.channel);
+        assertEquals(0, explicitZero.frame);
+
+        MacroOptionsParser.Parsed negative =
+                MacroOptionsParser.parse("threshold=10 channel=-3 frame=-1");
+        assertEquals(0, negative.channel);
+        assertEquals(0, negative.frame);
+    }
+
+    /**
+     * {@code frame} is a substring of nothing here, but {@code channel} sits inside
+     * plenty of image titles. The bracket-aware token scan must not read one out of
+     * a redirect title.
+     */
+    @Test
+    public void aRedirectTitleContainingTheKeyIsNotReadAsAPosition() {
+        MacroOptionsParser.Parsed p = MacroOptionsParser.parse(
+                "threshold=10 redirect=[channel=9 frame=9.tif]");
+        assertEquals("channel=9 frame=9.tif", p.redirectTitle);
+        assertEquals(0, p.channel);
+        assertEquals(0, p.frame);
+    }
+
+    @Test
+    public void rejectsNonNumericChannel() {
+        try {
+            MacroOptionsParser.parse("threshold=10 channel=red");
+            fail("expected IllegalArgumentException for channel=red");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage(), expected.getMessage().contains("channel"));
+        }
     }
 
     @Test

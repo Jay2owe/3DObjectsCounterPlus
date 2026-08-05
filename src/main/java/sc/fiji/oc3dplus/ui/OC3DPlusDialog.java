@@ -24,8 +24,12 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 import java.awt.BorderLayout;
@@ -90,6 +94,9 @@ public final class OC3DPlusDialog extends JDialog {
     private final Scrollbar thresholdScrollbar;
     private final TextField sliceField;
     private final Scrollbar sliceScrollbar;
+    /** Null unless the target is a hyperstack; a plain 3D stack has nothing to choose. */
+    private final JSpinner channelSpinner;
+    private final JSpinner frameSpinner;
     private final JFormattedTextField minField;
     private final JFormattedTextField maxField;
     private final JCheckBox excludeEdges;
@@ -259,6 +266,50 @@ public final class OC3DPlusDialog extends JDialog {
         });
         fields.add(createScrollbarControls(sliceScrollbar, sliceField), gbc);
         row++;
+
+        // Only a hyperstack has a choice to make here. Offering the control on a
+        // plain 3D stack would invite the reading that objects span channels, which
+        // is the thing this setting exists to prevent.
+        if (OC3DPlusDialogModel.isHyperstack(target)) {
+            int channels = Math.max(1, target.getNChannels());
+            int frames = Math.max(1, target.getNFrames());
+            model.channel = clampToSlider(
+                    model.channel > 0 ? model.channel : Math.max(1, target.getChannel()), 1, channels);
+            model.frame = clampToSlider(
+                    model.frame > 0 ? model.frame : Math.max(1, target.getFrame()), 1, frames);
+            channelSpinner = positionSpinner(model.channel, channels);
+            frameSpinner = positionSpinner(model.frame, frames);
+            channelSpinner.addChangeListener(new ChangeListener() {
+                @Override public void stateChanged(ChangeEvent e) {
+                    model.channel = spinnerValue(channelSpinner, model.channel);
+                    showTargetPosition();
+                    markPreviewStale();
+                }
+            });
+            frameSpinner.addChangeListener(new ChangeListener() {
+                @Override public void stateChanged(ChangeEvent e) {
+                    model.frame = spinnerValue(frameSpinner, model.frame);
+                    showTargetPosition();
+                    markPreviewStale();
+                }
+            });
+            gbc.gridy = row;
+            gbc.gridx = 0;
+            fields.add(new JLabel("Measure:"), gbc);
+            gbc.gridx = 1;
+            Panel position = new Panel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+            position.add(new JLabel("channel"));
+            position.add(channelSpinner);
+            position.add(new JLabel("of " + channels + ",  frame"));
+            position.add(frameSpinner);
+            position.add(new JLabel("of " + frames));
+            fields.add(position, gbc);
+            row++;
+            showTargetPosition();
+        } else {
+            channelSpinner = null;
+            frameSpinner = null;
+        }
 
         content.add(fields);
         content.add(Box.createVerticalStrut(8));
@@ -1537,6 +1588,35 @@ public final class OC3DPlusDialog extends JDialog {
 
     private static int targetSliceCount(ImagePlus image) {
         return image == null ? 1 : Math.max(1, image.getNSlices());
+    }
+
+    private static JSpinner positionSpinner(int value, int maximum) {
+        JSpinner spinner = new JSpinner(new SpinnerNumberModel(
+                Math.min(Math.max(1, value), Math.max(1, maximum)), 1, Math.max(1, maximum), 1));
+        JSpinner.NumberEditor editor = new JSpinner.NumberEditor(spinner, "0");
+        editor.getTextField().setColumns(FILTER_INPUT_FIELD_COLUMNS);
+        spinner.setEditor(editor);
+        spinner.setEnabled(maximum > 1);
+        return spinner;
+    }
+
+    private static int spinnerValue(JSpinner spinner, int fallback) {
+        if (spinner == null) return fallback;
+        Object value = spinner.getValue();
+        return value instanceof Number ? ((Number) value).intValue() : fallback;
+    }
+
+    /**
+     * Moves the displayed image onto the channel and frame that will be measured, so
+     * the threshold preview shows the plane the run will actually use rather than
+     * whichever one the image happened to be left on.
+     */
+    private void showTargetPosition() {
+        if (targetImage == null || channelSpinner == null || frameSpinner == null) return;
+        targetImage.setPosition(
+                clampToSlider(model.channel, 1, Math.max(1, targetImage.getNChannels())),
+                currentTargetSlice(),
+                clampToSlider(model.frame, 1, Math.max(1, targetImage.getNFrames())));
     }
 
     private void setTargetSlice(int slice) {

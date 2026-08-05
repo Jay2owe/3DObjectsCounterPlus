@@ -231,6 +231,8 @@ Macro options:
 | `max=<int>` | Maximum object size in voxels. | `Infinity` |
 | `max=Infinity` or `max=inf` | No upper size limit. | `Infinity` |
 | `exclude_edges` | Exclude objects touching image borders. | Off |
+| `channel=<int>` | Which channel of a hyperstack to measure, 1-based. `0` measures the channel the image is showing. | `0` |
+| `frame=<int>` | Which time point to measure, 1-based. `0` measures the frame the image is showing. | `0` |
 | `measure_fractal_xy` | Add XY-projection fractal and lacunarity columns. | Off |
 | `measure_composites` | Add RI, SRI, PB, MP, and VSD columns. | Off |
 | `measure_arborization` | Add skeleton graph and calibrated Sholl columns. | Off |

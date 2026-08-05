@@ -93,6 +93,14 @@ public final class OC3DPlusDialogModel {
     /** {@link Integer#MAX_VALUE} represents "Infinity" in the UI. */
     public int maxSize = Integer.MAX_VALUE;
     public boolean excludeOnEdges = false;
+    /**
+     * 1-based channel to measure, or {@link OC3DPlusParameters#USE_CURRENT_POSITION}
+     * for whichever channel the image is showing. Only meaningful for a hyperstack;
+     * a plain 3D stack resolves either way to its single channel.
+     */
+    public int channel = OC3DPlusParameters.USE_CURRENT_POSITION;
+    /** 1-based frame to measure, or {@link OC3DPlusParameters#USE_CURRENT_POSITION}. */
+    public int frame = OC3DPlusParameters.USE_CURRENT_POSITION;
     public boolean showLabels = true;
     public boolean showSurfaces = true;
     public boolean showCentroids = true;
@@ -119,6 +127,20 @@ public final class OC3DPlusDialogModel {
     public void configureForImage(ImagePlus image) {
         featureRanges.clear();
         featureRanges.addAll(defaultFeatureRanges(calibratedVolumeUnit(image)));
+        if (isHyperstack(image)) {
+            // Pin the position rather than leaving the sentinel. On a hyperstack the
+            // answer depends on which channel and frame are measured, so a recorded
+            // macro that says nothing would replay against whatever the next image
+            // happens to be displaying. On a plain stack there is nothing to pin and
+            // the sentinel stays, which keeps existing macro strings unchanged.
+            channel = Math.max(1, image.getChannel());
+            frame = Math.max(1, image.getFrame());
+        }
+    }
+
+    /** True when the image has more than one channel or more than one frame. */
+    public static boolean isHyperstack(ImagePlus image) {
+        return image != null && (image.getNChannels() > 1 || image.getNFrames() > 1);
     }
 
     public List<FilterRow> filters() {
@@ -170,6 +192,8 @@ public final class OC3DPlusDialogModel {
             errors.add("Max size (" + (maxSize == Integer.MAX_VALUE ? "Infinity" : maxSize)
                     + ") must be >= min size (" + minSize + ").");
         }
+        if (channel < 0) errors.add("Channel must be >= 0 (channel=" + channel + ").");
+        if (frame < 0) errors.add("Frame must be >= 0 (frame=" + frame + ").");
         if (redirectTitle != null && !redirectTitle.isEmpty()
                 && !MacroOptionsParser.isSafeBracketedValue(redirectTitle)) {
             errors.add("Redirect image title cannot contain [, ], quotes, backslashes, or line breaks "
@@ -236,6 +260,8 @@ public final class OC3DPlusDialogModel {
                 .minSize(minSize)
                 .maxSize(maxSize)
                 .excludeOnEdges(excludeOnEdges)
+                .channel(channel)
+                .frame(frame)
                 .measureFractalXY(measureFractalXY)
                 .measureCompositeIndices(measureComposites)
                 .measureArborization(measureArborization)
@@ -258,6 +284,10 @@ public final class OC3DPlusDialogModel {
         sb.append(" min=").append(minSize);
         sb.append(" max=").append(maxSize == Integer.MAX_VALUE ? "Infinity" : Integer.toString(maxSize));
         if (excludeOnEdges) sb.append(" exclude_edges");
+        // Omitted at the sentinel so a plain 3D stack records exactly what it always
+        // did; only a hyperstack, where the choice is real, writes it out.
+        if (channel > 0) sb.append(" channel=").append(channel);
+        if (frame > 0) sb.append(" frame=").append(frame);
         if (measureFractalXY) sb.append(" measure_fractal_xy");
         if (measureComposites) sb.append(" measure_composites");
         if (measureArborization) sb.append(" measure_arborization");
@@ -286,6 +316,8 @@ public final class OC3DPlusDialogModel {
         this.minSize = other.minSize;
         this.maxSize = other.maxSize;
         this.excludeOnEdges = other.excludeOnEdges;
+        this.channel = other.channel;
+        this.frame = other.frame;
         this.showLabels = other.showLabels;
         this.showSurfaces = other.showSurfaces;
         this.showCentroids = other.showCentroids;

@@ -24,6 +24,63 @@ public class OC3DPlusDialogModelTest {
         assertTrue("default model should be valid: " + errors, errors.isEmpty());
     }
 
+    /**
+     * A plain 3D stack has one channel and one frame, so there is nothing to pin
+     * and the sentinel stays. That is what keeps every macro string the plugin has
+     * ever recorded byte-identical.
+     */
+    @Test
+    public void aPlainStackKeepsTheCurrentPositionSentinel() {
+        OC3DPlusDialogModel model = new OC3DPlusDialogModel();
+        ImagePlus stack = new ImagePlus("plain", new ByteProcessor(4, 4));
+        model.configureForImage(stack);
+
+        assertFalse("a plain stack is not a hyperstack",
+                OC3DPlusDialogModel.isHyperstack(stack));
+        assertEquals(OC3DPlusParameters.USE_CURRENT_POSITION, model.channel);
+        assertEquals(OC3DPlusParameters.USE_CURRENT_POSITION, model.frame);
+        assertFalse(model.toMacroOptions().contains("channel="));
+        assertFalse(model.toMacroOptions().contains("frame="));
+    }
+
+    /**
+     * On a hyperstack the answer depends on which channel and frame are measured,
+     * so the model records the position rather than deferring to whatever the next
+     * image happens to be displaying when a recorded macro replays.
+     */
+    @Test
+    public void aHyperstackPinsTheDisplayedPosition() {
+        ij.ImageStack planes = new ij.ImageStack(4, 4);
+        for (int i = 0; i < 12; i++) planes.addSlice(new ByteProcessor(4, 4));
+        ImagePlus hyperstack = new ImagePlus("hyper", planes);
+        hyperstack.setDimensions(2, 3, 2);
+        hyperstack.setOpenAsHyperStack(true);
+        hyperstack.setPosition(2, 2, 2);
+
+        OC3DPlusDialogModel model = new OC3DPlusDialogModel();
+        model.configureForImage(hyperstack);
+
+        assertTrue(OC3DPlusDialogModel.isHyperstack(hyperstack));
+        assertEquals(2, model.channel);
+        assertEquals(2, model.frame);
+        assertTrue(model.toMacroOptions().contains("channel=2"));
+        assertTrue(model.toMacroOptions().contains("frame=2"));
+
+        OC3DPlusParameters parameters = model.toParameters(null, null);
+        assertEquals(2, parameters.channel);
+        assertEquals(2, parameters.frame);
+    }
+
+    @Test
+    public void snapshotCarriesThePosition() {
+        OC3DPlusDialogModel model = new OC3DPlusDialogModel();
+        model.channel = 3;
+        model.frame = 5;
+        OC3DPlusDialogModel copy = model.snapshot();
+        assertEquals(3, copy.channel);
+        assertEquals(5, copy.frame);
+    }
+
     @Test
     public void disabledExtendedFamilyDoesNotValidateHiddenRangeText() {
         OC3DPlusDialogModel model = new OC3DPlusDialogModel();

@@ -3,6 +3,7 @@ package sc.fiji.oc3dplus.equivalence;
 import org.junit.Test;
 import sc.fiji.oc3dplus.MacroOptionsParser;
 import sc.fiji.oc3dplus.api.MorphPredicate;
+import sc.fiji.oc3dplus.api.OC3DPlusParameters;
 import sc.fiji.oc3dplus.ui.OC3DPlusDialogModel;
 
 import java.util.ArrayList;
@@ -34,6 +35,8 @@ public class MacroRoundTripTest {
             assertEquals(context + " min", model.minSize, parsed.minSize);
             assertEquals(context + " max", model.maxSize, parsed.maxSize);
             assertEquals(context + " exclude_edges", model.excludeOnEdges, parsed.excludeOnEdges);
+            assertEquals(context + " channel", model.channel, parsed.channel);
+            assertEquals(context + " frame", model.frame, parsed.frame);
             assertEquals(context + " hide_labels", model.showLabels, parsed.showLabels);
             assertEquals(context + " hide_surfaces", model.showSurfaces, parsed.showSurfaces);
             assertEquals(context + " hide_centroids", model.showCentroids, parsed.showCentroids);
@@ -67,6 +70,8 @@ public class MacroRoundTripTest {
             rebuilt.minSize = parsed.minSize;
             rebuilt.maxSize = parsed.maxSize;
             rebuilt.excludeOnEdges = parsed.excludeOnEdges;
+            rebuilt.channel = parsed.channel;
+            rebuilt.frame = parsed.frame;
             rebuilt.showLabels = parsed.showLabels;
             rebuilt.showSurfaces = parsed.showSurfaces;
             rebuilt.showCentroids = parsed.showCentroids;
@@ -86,6 +91,24 @@ public class MacroRoundTripTest {
         }
     }
 
+    /**
+     * The sentinel is silence. Every macro string recorded before this option
+     * existed still parses to the same parameters, and no golden gains a token,
+     * because a model that has not chosen a position writes nothing about one.
+     */
+    @Test
+    public void anUnchosenPositionAddsNothingToTheOptions() {
+        String options = new OC3DPlusDialogModel().toMacroOptions();
+        assertEquals("a default model must not mention channel", -1, options.indexOf("channel="));
+        assertEquals("a default model must not mention frame", -1, options.indexOf("frame="));
+
+        MacroOptionsParser.Parsed parsed = MacroOptionsParser.parse(options);
+        assertEquals("absent channel resolves to the image's current position",
+                OC3DPlusParameters.USE_CURRENT_POSITION, parsed.channel);
+        assertEquals("absent frame resolves to the image's current position",
+                OC3DPlusParameters.USE_CURRENT_POSITION, parsed.frame);
+    }
+
     private static List<OC3DPlusDialogModel> models() {
         List<OC3DPlusDialogModel> out = new ArrayList<OC3DPlusDialogModel>();
         out.add(new OC3DPlusDialogModel());
@@ -99,6 +122,21 @@ public class MacroRoundTripTest {
         OC3DPlusDialogModel edges = new OC3DPlusDialogModel();
         edges.excludeOnEdges = true;
         out.add(edges);
+
+        OC3DPlusDialogModel positioned = new OC3DPlusDialogModel();
+        positioned.channel = 2;
+        positioned.frame = 7;
+        out.add(positioned);
+
+        // One axis chosen and the other left at the sentinel, because the recorder
+        // writes them independently and a macro can name either alone.
+        OC3DPlusDialogModel channelOnly = new OC3DPlusDialogModel();
+        channelOnly.channel = 3;
+        out.add(channelOnly);
+
+        OC3DPlusDialogModel frameOnly = new OC3DPlusDialogModel();
+        frameOnly.frame = 4;
+        out.add(frameOnly);
 
         OC3DPlusDialogModel hidden = new OC3DPlusDialogModel();
         hidden.showLabels = false;
@@ -131,6 +169,8 @@ public class MacroRoundTripTest {
         everything.minSize = 0;
         everything.maxSize = 123456;
         everything.excludeOnEdges = true;
+        everything.channel = 2;
+        everything.frame = 11;
         everything.showLabels = false;
         everything.showSummary = false;
         everything.measureFractalXY = true;

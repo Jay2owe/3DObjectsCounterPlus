@@ -100,6 +100,8 @@ public class ObjectsCounter3DPlus implements PlugIn {
                 .minSize(parsed.minSize)
                 .maxSize(parsed.maxSize)
                 .excludeOnEdges(parsed.excludeOnEdges)
+                .channel(parsed.channel)
+                .frame(parsed.frame)
                 .measureFractalXY(parsed.measureFractalXY)
                 .measureCompositeIndices(parsed.measureComposites)
                 .measureArborization(parsed.measureArborization)
@@ -213,6 +215,10 @@ public class ObjectsCounter3DPlus implements PlugIn {
         Recorder.recordOption("max",
                 parsed.maxSize == Integer.MAX_VALUE ? "Infinity" : String.valueOf(parsed.maxSize));
         if (parsed.excludeOnEdges) Recorder.recordOption("exclude_edges");
+        // Only recorded when explicitly chosen: 0 means "the position the image is
+        // already at", so writing it into a macro would be recording nothing.
+        if (parsed.channel > 0) Recorder.recordOption("channel", String.valueOf(parsed.channel));
+        if (parsed.frame > 0) Recorder.recordOption("frame", String.valueOf(parsed.frame));
         if (parsed.measureFractalXY) Recorder.recordOption("measure_fractal_xy");
         if (parsed.measureComposites) Recorder.recordOption("measure_composites");
         if (parsed.measureArborization) Recorder.recordOption("measure_arborization");
