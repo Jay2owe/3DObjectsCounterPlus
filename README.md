@@ -317,13 +317,21 @@ windows or mutating the source image.
 
 ## How It Works
 
-3D Objects Counter+ first labels thresholded 3D objects with the classic Fiji
-3D Objects Counter path. When extra filters are enabled, it measures morphology
-and intensity features from the label map, applies the selected ranges, and then
-builds the requested maps and results from the filtered label image.
+3D Objects Counter+ labels thresholded 3D objects with one 26-connected streaming
+labeller, whatever the bit depth or shape of the input. When extra filters are
+enabled, it measures morphology and intensity features from the label map, applies
+the selected ranges, and then builds the requested maps and results from the
+filtered label image.
 
-This keeps the default no-extra-filter workflow close to the classic plugin
-while avoiding expensive legacy map-generation paths for filtered runs.
+On a hyperstack it measures **one channel and one frame** — the displayed position
+unless `channel=`/`frame=` or the dialog's `Measure:` row chooses another. A channel
+is a separate signal and a frame a separate time point, so objects are never joined
+across either. A plain 3D stack is measured exactly as given.
+
+The results a single-channel 8-bit or 16-bit stack produces are held to
+column-for-column agreement with the classic Fiji plugin by an equivalence suite,
+label numbering included. The handful of columns that are allowed to differ, and
+why, are listed in `docs/migration/TOLERANCES.md`.
 
 ## Outputs
 
@@ -352,10 +360,10 @@ standard Fiji backend was used or the measurement was unavailable.
 
 ### Filtered Processing Notes
 
-For standard single-channel 8-bit or 16-bit stacks, filtered runs use classic
-3D Objects Counter labelling first, then apply the Plus filters on that label
-map with streaming measurements. Object, surface, centroid, and center-of-mass
-maps are built from the filtered label image and matching statistics table.
+A filtered run labels the volume exactly as an unfiltered one does, then applies
+the Plus filters to that label map with streaming measurements. Object, surface,
+centroid, and center-of-mass maps are built from the filtered label image and
+matching statistics table.
 
 `Morph_*` statistics columns remain available in filtered results. Values that
 cannot be computed are reported as `NaN`. Shape values such as sphericity,

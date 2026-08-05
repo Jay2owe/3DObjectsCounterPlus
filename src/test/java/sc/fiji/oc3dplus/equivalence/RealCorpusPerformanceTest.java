@@ -301,6 +301,21 @@ public class RealCorpusPerformanceTest {
         out.append("Peak heap is the sum of peak usage across the JVM's heap pools after ")
                 .append("resetting their counters, so it covers the whole run rather than a ")
                 .append("sample of it.\n\n");
+        out.append("**A peak far larger than the volume is ImageJ's reader, not the engine.** ")
+                .append("`ij.io.RandomAccessStream` keeps every block it has read in a ")
+                .append("`Vector`, so reaching a plane stored late in a large file costs heap ")
+                .append("in proportion to that offset. It is retained, not collectable: the ")
+                .append("OME-TIFF flagged in `Notes` below, run on its own under `-Xmx1g`, ")
+                .append("dies with an `OutOfMemoryError` inside `RandomAccessStream.readUntil` ")
+                .append("called from `FileInfoVirtualStack.openVirtual` - before any detection ")
+                .append("code runs. That cost belongs to opening the file and is unchanged by ")
+                .append("this migration.\n\n");
+        out.append("**These are measurements, not benchmarks.** Repeat runs on the same ")
+                .append("machine, heap and code moved both the total and the largest volume by ")
+                .append("about a quarter, most of it file-cache state outside this process. ")
+                .append("Read a single figure as plus or minus a quarter, and read the ")
+                .append("order-of-magnitude comparisons as the finding. ")
+                .append("`STAGE03_DELIVERABLES.md` section 2 lists what the repeats gave.\n\n");
         out.append("| # | File | Volume measured | Voxels | Ch | Fr | Thr | Objects "
                 + "| Unified time | Unified peak | Classic time | Classic peak | Notes |\n");
         out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");

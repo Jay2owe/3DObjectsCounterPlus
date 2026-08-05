@@ -16,6 +16,18 @@ All notable changes to 3D Objects Counter+ are documented here.
   long-form within-batch score CSV.
 - Descriptive population z-scores and empirical midrank percentiles with an
   explicit morphology-only scoring allowlist.
+- `channel=<n>` and `frame=<n>` macro options, a matching `Measure:` row in the
+  dialog shown only for hyperstacks, and the same two settings in a batch. Both
+  are 1-based; `0`, or omitting them, means the position the image is already at.
+
+### Changed
+
+- On a hyperstack, detection now measures **one channel and one frame** — the
+  displayed position unless a macro or the dialog chooses another. Previously it
+  ran over the first `nSlices` planes of the underlying stack, so a 2-channel
+  101-frame timelapse was measured as one plane of 202 and objects could be
+  joined across channels. Plain 3D stacks are unaffected, and a macro that does
+  not mention `channel=` or `frame=` records and replays exactly as before.
 
 ### Compatibility and safety
 
