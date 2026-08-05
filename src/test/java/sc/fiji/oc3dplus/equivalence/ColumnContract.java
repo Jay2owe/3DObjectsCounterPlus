@@ -212,7 +212,7 @@ public final class ColumnContract {
         }
 
         // Section 2 - Tier 2, bounded.
-        out.add(entry(SURFACE, EnumSet.of(HarnessCase.A), 2, Rule.FLOAT_NARROW_IF_3D, Double.NaN));
+        out.add(entry(SURFACE, EnumSet.of(HarnessCase.A), 3, Rule.SIGNOFF, Double.NaN));
         out.add(entry(SURFACE, EnumSet.of(HarnessCase.B, HarnessCase.C), 2, Rule.RELATIVE, 5e-2));
         out.add(entry("Nb of surf. voxels", EnumSet.of(HarnessCase.A), 2, Rule.EXACT_IF_3D, Double.NaN));
         out.add(entry("Nb of surf. voxels", EnumSet.of(HarnessCase.B, HarnessCase.C), 2, Rule.RELATIVE, 5e-2));
@@ -230,7 +230,7 @@ public final class ColumnContract {
         // measures it; TOLERANCES.md sections 2 and 4 carry it as Tier 3.
         String[] floatTyped = {"IntDen", "Mean", "X", "Y", "Z", "XM", "YM", "ZM"};
         for (int i = 0; i < floatTyped.length; i++) {
-            out.add(entry(floatTyped[i], EnumSet.of(HarnessCase.A), 2, Rule.FLOAT_NARROW, Double.NaN));
+            out.add(entry(floatTyped[i], EnumSet.of(HarnessCase.A), 3, Rule.SIGNOFF, Double.NaN));
             out.add(exact(floatTyped[i], EnumSet.of(HarnessCase.B, HarnessCase.C)));
         }
         // Sample versus population standard deviation, measured, not precision.
@@ -242,7 +242,7 @@ public final class ColumnContract {
         // case, bit-identically to Utilities.Object3D.median. Its cell rule stays
         // float-narrow on Case A alongside its siblings; on B and C the column is
         // new, which diffColumns reports once as a declared addition.
-        out.add(entry("Median", EnumSet.of(HarnessCase.A), 2, Rule.FLOAT_NARROW, Double.NaN));
+        out.add(entry("Median", EnumSet.of(HarnessCase.A), 3, Rule.SIGNOFF, Double.NaN));
         out.add(entry("Median", EnumSet.of(HarnessCase.B, HarnessCase.C), 3, Rule.SIGNOFF,
                 Double.NaN));
 

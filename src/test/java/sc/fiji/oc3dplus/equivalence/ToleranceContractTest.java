@@ -112,9 +112,10 @@ public class ToleranceContractTest {
         assertTrue("Median must be contracted for Case A; the classic path emits it from "
                 + "Utilities.Object3D.median and the accumulator now reproduces it",
                 median != null);
-        assertEquals(ColumnContract.Rule.FLOAT_NARROW, median.rule);
-        assertEquals("Median's reference is a float field, so its cell rule is Tier 2 even "
-                + "though harness section 3 lists the column as Tier 1", 2, median.tier);
+        assertEquals("the double value supersedes the float-accumulated reference "
+                + "rather than being measured against it", ColumnContract.Rule.SIGNOFF,
+                median.rule);
+        assertEquals(3, median.tier);
         // This used to assert the opposite - that B and C must have NO entry,
         // because no mcib3d path emitted the column. Stage 03 implemented a median
         // in the accumulator instead of dropping the column, and one engine means

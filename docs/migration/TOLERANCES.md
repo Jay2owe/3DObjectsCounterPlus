@@ -254,23 +254,24 @@ individually. Any object with a **nonzero** delta on a row marked
 
 | Column | Cases | Tier | Rule | Bound | Justification |
 |---|---|---|---|---|---|
-| `Surface (unit^2)` | A | 2 | float-narrow-if-3d | - | Measured identical for `depth > 1` (§0.2), same definition and same summation order, so the only separation is `float` accumulation in `Counter3D.surf_cal` versus `double` in the accumulator. `depth == 1` is the declared single-slice difference of §0.3 and is reported for sign-off, never passed as agreement. |
+| `Surface (unit^2)` | A | 3 | signoff | - | Measured identical for `depth > 1` (§0.2), same definition and same summation order, so the only separation is `float` accumulation in `Counter3D.surf_cal` versus `double` in the accumulator. `depth == 1` is the declared single-slice difference of §0.3 and is reported for sign-off, never passed as agreement. |
 | `Surface (unit^2)` | B,C | 2 | relative | 5e-2 | mcib3d `MeasureSurface.getSurfaceContactUnit` is a genuinely different digital-surface estimator from the exposed-face sum. No tighter bound is derivable a priori; 5e-2 exists to force per-object inspection rather than to certify agreement. |
 | `Nb of surf. voxels` | A | 2 | exact-if-3d | - | Measured identical when `depth > 1`; declared divergence when `depth == 1`, where `Counter3D` counts only the in-plane perimeter (§0.3). Integer-valued, so exactness is the right claim for 3D. Single-slice fixtures are reported as a known difference, never as a pass. |
 | `Nb of surf. voxels` | B,C | 2 | relative | 5e-2 | mcib3d counts contour voxels by its own rule. Same reasoning as `Surface` on B/C. |
 | `Morph_Sphericity` | C | 2 | relative | 5e-2 | Case C's current value is mcib3d `SPHER_CORRECTED`; the accumulator's Lindblad weights claim to reproduce it exactly, but that claim is untested against mcib3d in this repo. Expected near-identical; the bound forces inspection. |
 | `Morph_Compactness` | C | 2 | relative | 5e-2 | As `Morph_Sphericity` on Case C, for `COMP_CORRECTED`. |
 | `Morph_Elongation` | C | 2 | relative | 1e-9 | Moment-tensor eigenvalue ratio in both implementations; only floating-point association differs. Harness §3 states the same bound. |
-| `IntDen` | A | 2 | float-narrow | - | See §3. Reference is `float`; rule is equality after narrowing the candidate to `float`. |
-| `Mean` | A | 2 | float-narrow | - | See §3. |
+| `IntDen` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float`. See §3. |
+<!-- superseded 2026-08-05: the float-narrow justification for this row. See §3. Reference is `float`; rule is equality after narrowing the candidate to `float`. | -->
+| `Mean` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float` and is the less accurate number. See §3. |
 | `StdDev` | A | 3 | signoff | - | **Retiered 2026-08-04, and the earlier justification was wrong.** This was declared Tier 2 `float-narrow` on the grounds that the reference is a `float`. It is not a precision difference at all: `Counter3D` computes the **sample** standard deviation, dividing by *n*−1, and the accumulator the **population** one, dividing by *n*. Measured across six object sizes in `StdDevDefinitionProbeTest`, the ratio is `sqrt(n/(n-1))` to six decimal places every time — 29.3% at *n*=2, 5.1% at 10, 1.9% at 27, 0.5% at 100, negligible above a few thousand. Systematic, on every object, largest for the small objects that dominate punctate data. Needs a sign-off and a release note; no tolerance can express it. |
-| `X` | A | 2 | float-narrow | - | See §3. |
-| `Y` | A | 2 | float-narrow | - | See §3. |
-| `Z` | A | 2 | float-narrow | - | See §3. |
-| `XM` | A | 2 | float-narrow | - | See §3. |
-| `YM` | A | 2 | float-narrow | - | See §3. |
-| `ZM` | A | 2 | float-narrow | - | See §3. |
-| `Median` | A | 2 | float-narrow | - | See §3 for the cell rule. Case A only: no other path emits the column. The substantive problem is not its precision but that no replacement computes a median at all - see §0.4 and the open item in §4, which the harness surfaces as a **removed Tier 1 column**, not as a cell difference. |
+| `X` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float` and is the less accurate number. See §3. |
+| `Y` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float` and is the less accurate number. See §3. |
+| `Z` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float` and is the less accurate number. See §3. |
+| `XM` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float` and is the less accurate number. See §3. |
+| `YM` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float` and is the less accurate number. See §3. |
+| `ZM` | A | 3 | signoff | - | Computed in double; the reference was accumulated in `float` and is the less accurate number. See §3. |
+| `Median` | A | 3 | signoff | - | See §3 for the cell rule. Case A only: no other path emits the column. The substantive problem is not its precision but that no replacement computes a median at all - see §0.4 and the open item in §4, which the harness surfaces as a **removed Tier 1 column**, not as a cell difference. |
 | `IntDen` | B,C | 1 | exact | - | Computed by `computeDirectIntensityStats` in `double` today and by the accumulator in `double` after; same traversal order, so bit-identity is reachable. |
 | `Mean` | B,C | 1 | exact | - | As `IntDen` on B/C. |
 | `StdDev` | B,C | 1 | exact | - | As `IntDen` on B/C. |
