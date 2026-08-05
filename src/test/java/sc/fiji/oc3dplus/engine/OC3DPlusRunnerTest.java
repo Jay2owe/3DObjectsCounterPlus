@@ -55,86 +55,90 @@ public class OC3DPlusRunnerTest {
         assertEquals(1, positiveLabels(result.labelImage()).size());
     }
 
+    /**
+     * Detection, then filtering, then renumbering, on one engine.
+     *
+     * <p>This used to inject a fake detection backend so it could hand the runner
+     * a ready-made label map. There is one engine now and no such seam, so the
+     * test drives the real thing: three separated objects of 1, 5 and 8 voxels, a
+     * volume filter that keeps only the largest, and the survivor renumbered to 1.
+     */
     @Test
-    public void filteredCompatibleStackUsesClassicDetectionBeforeFiltering() {
-        ImagePlus classicLabels = twoLabelMapWithDifferentVolumes();
-        RecordingCounterBackend backend = new RecordingCounterBackend(
-                classicLabels, null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+    public void filteringRenumbersSurvivorsFromOne() {
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
-        OC3DPlusRunner.Result result = runner.runResult(emptyByteStack(8, 8, 3),
+        OC3DPlusRunner.Result result = runner.runResult(basicFilterIntensityStack(),
                 OC3DPlus.builder()
-                        .threshold(100)
+                        .threshold(10)
                         .minSize(1)
-                        .addFilter("volume", ">=", 4.0)
+                        .addFilter("volume", ">=", 6.0)
                         .build());
 
-        assertEquals(1, backend.classicRuns);
-        assertEquals("compatible filtered stacks should not start with native detection",
-                0, backend.nativeRuns);
-        assertEquals("compatible filtered stacks should not recount final labels",
-                0, backend.fromLabelImageRuns);
         assertNotNull(result.getLabelImage());
         assertEquals(labels(Integer.valueOf(1)), positiveLabels(result.getLabelImage()));
         assertEquals(1, result.getPredicateCounts().length);
         assertEquals(1, result.getPredicateCounts()[0]);
         assertEquals(1, result.getStatistics().size());
         assertEquals(1.0, result.getStatistics().getValue("Label", 0), 0.0);
-        assertEquals("surviving row should be copied from old label 2 before relabeling",
-                2.0, result.getStatistics().getValue("Mean", 0), 0.0);
+        assertEquals("the 8-voxel box is the only survivor, and it is measured from "
+                        + "the source stack where it has intensity 80",
+                80.0, result.getStatistics().getValue("Mean", 0), 0.0);
     }
 
     @Test
     public void filteredStatsLabelsAreConsecutiveAndMatchFinalLabelImage() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(basicFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(basicFilterIntensityStack(),
                 OC3DPlus.builder()
-                        .threshold(100)
+                        .threshold(10)
                         .minSize(1)
                         .addFilter("volume", ">=", 5.0)
                         .build());
 
         ResultsTable stats = result.getStatistics();
-        assertEquals(1, backend.classicRuns);
-        assertEquals(0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(2, stats.size());
         assertEquals(labels(Integer.valueOf(1), Integer.valueOf(2)),
                 positiveLabels(result.getLabelImage()));
         assertEquals(positiveLabels(result.getLabelImage()), labelsFromStats(stats));
         assertEquals(1.0, stats.getValue("Label", 0), 0.0);
         assertEquals(2.0, stats.getValue("Label", 1), 0.0);
-        assertEquals("row 0 keeps detected measurements from old label 2",
-                2.0, stats.getValue("Mean", 0), 0.0);
-        assertEquals("row 1 keeps detected measurements from old label 3",
-                3.0, stats.getValue("Mean", 1), 0.0);
+        // Survivors keep their detected measurements and are renumbered in the
+        // order they were detected: the 5-voxel column (intensity 200) is found on
+        // slice 0, the 8-voxel box (intensity 80) on slice 1.
+        assertEquals(200.0, stats.getValue("Mean", 0), 0.0);
+        assertEquals(80.0, stats.getValue("Mean", 1), 0.0);
         assertHasColumn(stats, "Morph_Sphericity");
         assertHasColumn(stats, "Morph_Compactness");
         assertHasColumn(stats, "Morph_Elongation");
         assertHasColumn(stats, "Morph_Feret3D_um");
     }
 
+    /**
+     * 32-bit input takes the same path as everything else.
+     *
+     * <p>This test used to assert the opposite: that a 32-bit stack "falls back to
+     * native detection", because {@code canUseClassicCounter} accepted only 8- and
+     * 16-bit and everything else went to mcib3d - the path the code itself called
+     * crash-prone. There is no fallback now, and no second engine to fall back to,
+     * so what is worth asserting is that 32-bit input is simply measured.
+     */
     @Test
-    public void filteredIncompatibleStackFallsBackToNativeDetection() {
-        ImagePlus nativeLabels = singleLabelMap();
-        RecordingCounterBackend backend = new RecordingCounterBackend(
-                null, nativeLabels);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+    public void thirtyTwoBitInputRunsOnTheUnifiedPath() {
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
-        OC3DPlusRunner.Result result = runner.runResult(emptyFloatStack(8, 8, 3),
+        OC3DPlusRunner.Result result = runner.runResult(floatStackWithOneCube(),
                 OC3DPlus.builder()
                         .threshold(100)
                         .minSize(1)
                         .addFilter("volume", ">=", 1.0)
                         .build());
 
-        assertEquals(0, backend.classicRuns);
-        assertEquals(1, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertNotNull(result.getLabelImage());
+        assertEquals(1, result.getStatistics().size());
         assertEquals(1, result.getPredicateCounts()[0]);
+        assertEquals(8.0, result.getStatistics().getValue("Nb of obj. voxels", 0), 0.0);
+        assertEquals(150.0, result.getStatistics().getValue("Mean", 0), 0.0);
     }
 
     @Test
@@ -218,21 +222,17 @@ public class OC3DPlusRunnerTest {
 
     @Test
     public void basicGeometryFiltersUseAccumulatorMeasurements() {
-        ImagePlus labels = basicFilterLabelMap();
-        RecordingCounterBackend backend = new RecordingCounterBackend(labels, null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(basicFilterIntensityStack(),
                 OC3DPlus.builder()
-                        .threshold(100)
+                        .threshold(10)
                         .minSize(1)
                         .addFilter("surface_area", ">=", 20.0)
                         .addFilter("sphericity", ">=", 0.7)
                         .addFilter("compactness", "<=", 2.0)
                         .build());
 
-        assertEquals(1, backend.classicRuns);
-        assertEquals(0, backend.nativeRuns);
         assertEquals(1, result.getStatistics().size());
         assertEquals(3, result.getPredicateCounts().length);
         // surface_area>=20 keeps the 3x3x2 box and the 1x1x5 column (drops the 1-voxel blob).
@@ -248,8 +248,7 @@ public class OC3DPlusRunnerTest {
 
     @Test
     public void intensityFiltersUseSourceImageWhenNoRedirectIsSupplied() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(basicFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(basicFilterIntensityStack(),
                 OC3DPlus.builder()
@@ -268,22 +267,17 @@ public class OC3DPlusRunnerTest {
 
     @Test
     public void redirectIntensityFilterKeepsClassicDetectionPath() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(basicFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(basicFilterIntensityStack(),
                 OC3DPlus.builder()
-                        .threshold(100)
+                        .threshold(10)
                         .minSize(1)
                         .intensityImage(redirectedBasicIntensityStack())
                         .addFilter("mean_intensity", ">=", 400.0)
                         .build());
 
         ResultsTable stats = result.getStatistics();
-        assertEquals(1, backend.classicRuns);
-        assertEquals("redirect must not force the native mcib3d detection path",
-                0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(1, stats.size());
         assertEquals(labels(Integer.valueOf(1)), positiveLabels(result.getLabelImage()));
         assertEquals(1.0, stats.getValue("Label", 0), 0.0);
@@ -295,24 +289,21 @@ public class OC3DPlusRunnerTest {
 
     @Test
     public void redirectWithoutFiltersKeepsClassicDetectionAndRedirectStats() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(basicFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(basicFilterIntensityStack(),
                 OC3DPlus.builder()
-                        .threshold(100)
+                        .threshold(10)
                         .minSize(1)
                         .intensityImage(redirectedBasicIntensityStack())
                         .build());
 
         ResultsTable stats = result.getStatistics();
-        assertEquals(1, backend.classicRuns);
-        assertEquals("redirect must not force the native mcib3d detection path",
-                0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(3, stats.size());
-        assertEquals(500.0, stats.getValue("Mean", rowForLabel(stats, 2)), 0.0);
-        assertEquals(20.0, stats.getValue("Mean", rowForLabel(stats, 3)), 0.0);
+        // Intensities come from the redirect image: the column reads 20 there and
+        // the box 500, whatever their values in the stack that was thresholded.
+        assertEquals(20.0, stats.getValue("Mean", rowForLabel(stats, 1)), 0.0);
+        assertEquals(500.0, stats.getValue("Mean", rowForLabel(stats, 3)), 0.0);
         assertHasColumn(stats, "Morph_Sphericity");
         assertHasColumn(stats, "Morph_Compactness");
         assertHasColumn(stats, "Morph_Elongation");
@@ -321,8 +312,7 @@ public class OC3DPlusRunnerTest {
 
     @Test
     public void elongationFilterUsesAccumulatorMeasurements() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(shapeFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(shapeFilterSourceStack(),
                 OC3DPlus.builder()
@@ -331,10 +321,6 @@ public class OC3DPlusRunnerTest {
                         .addFilter("elongation", ">=", 3.0)
                         .build());
 
-        assertEquals(1, backend.classicRuns);
-        assertEquals("compatible shape filters should not start with native detection",
-                0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(1, result.getStatistics().size());
         assertEquals(1, result.getPredicateCounts().length);
         assertEquals(1, result.getPredicateCounts()[0]);
@@ -344,8 +330,7 @@ public class OC3DPlusRunnerTest {
 
     @Test
     public void feretFilterUsesAccumulatorMeasurements() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(shapeFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(shapeFilterSourceStack(),
                 OC3DPlus.builder()
@@ -354,10 +339,6 @@ public class OC3DPlusRunnerTest {
                         .addFilter("feret_diameter_max", ">=", 6.0)
                         .build());
 
-        assertEquals(1, backend.classicRuns);
-        assertEquals("compatible Feret filters should not start with native detection",
-                0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(1, result.getStatistics().size());
         assertEquals(1, result.getPredicateCounts().length);
         assertEquals(1, result.getPredicateCounts()[0]);
@@ -460,8 +441,7 @@ public class OC3DPlusRunnerTest {
 
     @Test
     public void filteredStatsPopulateAllMorphologyValuesWhenOnlySphericityIsFiltered() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(shapeFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(shapeFilterSourceStack(),
                 OC3DPlus.builder()
@@ -471,17 +451,13 @@ public class OC3DPlusRunnerTest {
                         .build());
 
         ResultsTable stats = result.getStatistics();
-        assertEquals(1, backend.classicRuns);
-        assertEquals(0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(2, stats.size());
         assertAllRowsHaveFiniteMorphology(stats);
     }
 
     @Test
     public void filteredStatsPopulateAllMorphologyValuesForNonMorphFilter() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(shapeFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(shapeFilterSourceStack(),
                 OC3DPlus.builder()
@@ -491,17 +467,13 @@ public class OC3DPlusRunnerTest {
                         .build());
 
         ResultsTable stats = result.getStatistics();
-        assertEquals(1, backend.classicRuns);
-        assertEquals(0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(2, stats.size());
         assertAllRowsHaveFiniteMorphology(stats);
     }
 
     @Test
     public void filteredStatsKeepExpectedMorphologyColumnsForShapeFilters() {
-        RecordingCounterBackend backend = new RecordingCounterBackend(shapeFilterLabelMap(), null);
-        OC3DPlusRunner runner = new OC3DPlusRunner(backend);
+        OC3DPlusRunner runner = new OC3DPlusRunner();
 
         OC3DPlusRunner.Result result = runner.runResult(shapeFilterSourceStack(),
                 OC3DPlus.builder()
@@ -514,9 +486,6 @@ public class OC3DPlusRunnerTest {
                         .build());
 
         ResultsTable stats = result.getStatistics();
-        assertEquals(1, backend.classicRuns);
-        assertEquals(0, backend.nativeRuns);
-        assertEquals(0, backend.fromLabelImageRuns);
         assertEquals(2, stats.size());
         assertEquals(labels(Integer.valueOf(1), Integer.valueOf(2)),
                 positiveLabels(result.getLabelImage()));
@@ -536,7 +505,10 @@ public class OC3DPlusRunnerTest {
         assertEquals(1, stats.size());
         assertEquals(2808.0, stats.getValue("IntDen", 0), 0.0);
         assertEquals(104.0, stats.getValue("Mean", 0), 0.0);
-        assertEquals(2.631174087524414, stats.getValue("StdDev", 0), 1.0e-12);
+        // Population standard deviation, dividing by n. The old expectation,
+        // 2.631174087524414, was Counter3D's SAMPLE deviation over the same 27
+        // voxels - larger by exactly sqrt(27/26). See StdDevDefinitionProbeTest.
+        assertEquals(2.581988897471494, stats.getValue("StdDev", 0), 1.0e-12);
         assertEquals(100.0, stats.getValue("Min", 0), 0.0);
         assertEquals(108.0, stats.getValue("Max", 0), 0.0);
         assertEquals(7.006410256410256, stats.getValue("XM", 0), 1.0e-6);
@@ -626,6 +598,23 @@ public class OC3DPlusRunnerTest {
             stack.addSlice(sp);
         }
         return new ImagePlus("redirected-basic-intensity", stack);
+    }
+
+    /** A 32-bit stack holding one 2x2x2 cube, for the unified-path check. */
+    private static ImagePlus floatStackWithOneCube() {
+        ImageStack stack = new ImageStack(8, 8);
+        for (int z = 0; z < 3; z++) {
+            FloatProcessor fp = new FloatProcessor(8, 8);
+            if (z >= 1) {
+                for (int y = 2; y < 4; y++) {
+                    for (int x = 2; x < 4; x++) {
+                        fp.setf(x, y, 150f);
+                    }
+                }
+            }
+            stack.addSlice(fp);
+        }
+        return new ImagePlus("float-one-cube", stack);
     }
 
     private static ImagePlus shapeFilterLabelMap() {

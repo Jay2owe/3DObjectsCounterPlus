@@ -38,16 +38,44 @@ public class Counter3DDefectTest {
     public void isolatedFinalVoxelThrowsOutOfTheClassicCounter() {
         ImagePlus input = FixtureCorpus.byName("corner-x1y1z1").createInput();
         try {
-            OC3DPlus.count(input, OC3DPlus.builder().threshold(100).minSize(1).build());
+            // Deliberately against the shipped Counter3D rather than through
+            // OC3DPlus.count. The plugin no longer routes here, so calling the API
+            // would prove only that the crash is gone - which the sibling test
+            // below asserts. This test's job is to keep the defect itself
+            // evidenced, in this repository, for as long as the jar is a
+            // dependency.
+            new sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper().run(
+                    input, 100, 1, Integer.MAX_VALUE, false, false, true, false);
             fail("expected the classic Counter3D to throw on a stack whose final voxel is an "
-                    + "isolated object; if this now passes, the defect has been fixed and this "
-                    + "test plus the CHANGELOG entry need updating");
+                    + "isolated object; if this now passes, the shipped jar changed and both "
+                    + "this test and the CHANGELOG entry need updating");
         } catch (ArrayIndexOutOfBoundsException expected) {
             String message = expected.getMessage();
             assertTrue("message should either be absent (HotSpot fast-throw) or name the "
                             + "out-of-bounds index, but was: " + message,
                     message == null || message.contains("1"));
         } finally {
+            Stacks.discard(input);
+        }
+    }
+
+    /**
+     * ...and the unified engine counts the same stack without incident.
+     *
+     * <p>The pair is the point: the defect is real and reproducible on the shipped
+     * counter, and it is gone from the path users actually take.
+     */
+    @Test
+    public void theUnifiedEngineCountsTheFinalVoxelStack() {
+        ImagePlus input = FixtureCorpus.byName("corner-x1y1z1").createInput();
+        ImagePlus labels = null;
+        try {
+            OC3DPlusResult result = OC3DPlus.count(input,
+                    OC3DPlus.builder().threshold(100).minSize(1).build());
+            labels = result.labelImage();
+            assertEquals("the isolated final voxel is one object", 1, result.objectCount());
+        } finally {
+            Stacks.discard(labels);
             Stacks.discard(input);
         }
     }

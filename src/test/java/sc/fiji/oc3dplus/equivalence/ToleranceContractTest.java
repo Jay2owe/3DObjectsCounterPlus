@@ -107,17 +107,27 @@ public class ToleranceContractTest {
      * an uncontracted one.
      */
     @Test
-    public void medianIsContractedForCaseAOnly() {
+    public void medianIsContractedForEveryCase() {
         ColumnContract.Entry median = ColumnContract.lookup("Median", HarnessCase.A);
         assertTrue("Median must be contracted for Case A; the classic path emits it from "
-                + "Utilities.Object3D.median", median != null);
+                + "Utilities.Object3D.median and the accumulator now reproduces it",
+                median != null);
         assertEquals(ColumnContract.Rule.FLOAT_NARROW, median.rule);
         assertEquals("Median's reference is a float field, so its cell rule is Tier 2 even "
                 + "though harness section 3 lists the column as Tier 1", 2, median.tier);
-        assertTrue("no mcib3d path emits Median, so a Case B entry would be wrong",
-                ColumnContract.lookup("Median", HarnessCase.B) == null);
-        assertTrue("no mcib3d path emits Median, so a Case C entry would be wrong",
-                ColumnContract.lookup("Median", HarnessCase.C) == null);
+        // This used to assert the opposite - that B and C must have NO entry,
+        // because no mcib3d path emitted the column. Stage 03 implemented a median
+        // in the accumulator instead of dropping the column, and one engine means
+        // one column set, so B and C now have it too. It is Tier 3 there: an
+        // additive schema change, signed off, not a cell tolerance.
+        for (HarnessCase gained : new HarnessCase[] {HarnessCase.B, HarnessCase.C}) {
+            ColumnContract.Entry entry = ColumnContract.lookup("Median", gained);
+            assertTrue("Median is emitted for case " + gained + " now, so it needs an entry "
+                    + "or the differ will call it uncontracted", entry != null);
+            assertEquals("the column is new on case " + gained + ", which is a sign-off "
+                    + "not a tolerance", 3, entry.tier);
+            assertEquals(ColumnContract.Rule.SIGNOFF, entry.rule);
+        }
     }
 
     private static Map<String, String> parse() throws Exception {

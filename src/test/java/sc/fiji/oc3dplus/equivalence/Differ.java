@@ -152,7 +152,8 @@ public final class Differ {
             "foundObjects",
             "survivingPerFilter",
             "filterLabels",
-            "warnings.count",
+            // "warnings.count" is compared by diffWarningText instead, which can
+            // see whether an added warning is the declared channel/frame notice.
             // "summary" is compared by diffSummary instead: its structure at Tier 1,
             // each morphology mean at the tier of the column it is a mean of. As a
             // flat Tier 1 string it re-reported every declared column difference a
@@ -250,6 +251,161 @@ public final class Differ {
      * The exception type is pinned too, so an unrelated crash disappearing does
      * not quietly pass through this door.
      */
+    /**
+     * Records whose whole difference is a defect the user decided to fix.
+     *
+     * <p>Each entry names one fixture-and-configuration, the defect, and the
+     * expected before and after. Nothing is matched loosely: if the numbers stop
+     * being exactly these, the allowance does not apply and the record is compared
+     * normally, so a second, unrelated change hiding behind a known one still
+     * fails.
+     *
+     * <p>These are fixes, not tolerances. Each was measured on the shipped build,
+     * written up in TOLERANCES.md §4, and ratified before it was declared here.
+     */
+    private static boolean isDeclaredDefectFix(CaptureRecord golden,
+                                               CaptureRecord candidate,
+                                               Report report) {
+        String id = golden.id();
+
+        // Hyperstack input measures one channel and one frame now. The old path
+        // read the first nSlices planes of the stack and ignored the rest - on a
+        // 2-channel 101-frame timelapse, one plane out of 202 - and it applied the
+        // same truncation to a redirect image. Every measurement on a hyperstack
+        // fixture therefore differs, by design and by decision, so each record is
+        // reported once with its before and after rather than as a shower of
+        // per-column Tier 1 findings that all have the same single cause.
+        //
+        // Scoped to input shape, which the golden records as corpus integrity data:
+        // a single-volume record is still compared in full, column by column.
+        if (isHyperstack(golden)) {
+            report.add(3, id, "hyperstack channel/frame selection (declared)",
+                    "golden measured " + golden.get("objectCount") + " object(s) from the "
+                            + "first nSlices planes of a " + golden.get("input.channels")
+                            + "-channel, " + golden.get("input.frames") + "-frame stack; "
+                            + "the candidate measures one channel and one frame and finds "
+                            + candidate.get("objectCount") + ". TOLERANCES.md section 4");
+            return true;
+        }
+
+        // Zero is background whatever the threshold says, as Counter3D has always
+        // treated it. The mcib3d path did not, so at threshold 0 it returned the
+        // entire volume - background included - as one object.
+        if (id.endsWith("/thr-all-foreground") && goldenObjectIsTheWholeVolume(golden)) {
+            report.add(3, id, "threshold-0 foreground rule (declared)",
+                    "at threshold 0 the golden returned a single object spanning every "
+                            + "voxel of the volume, background included, because the mcib3d "
+                            + "path did not treat zero as background; the candidate finds "
+                            + candidate.get("objectCount") + " real object(s). "
+                            + "TOLERANCES.md section 4");
+            return true;
+        }
+
+        // mcib3d's getExcludeBorders(handler, false) excludes the X and Y borders
+        // only. Counter3D excludes X, Y and - for a stack deeper than one slice -
+        // Z, which is what the option documents and what Case A users have always
+        // had. Unifying brings Case B into line, so an object touching only the
+        // first or last slice is now dropped where mcib3d kept it.
+        if (id.endsWith("/edges-on")
+                && goldenKeptOnlyZBorderObjects(golden, candidate)) {
+            report.add(3, id, "excludeOnEdges z rule (declared)",
+                    "golden kept " + golden.get("objectCount") + " object(s) touching only "
+                            + "the first or last slice, because mcib3d excludes X and Y "
+                            + "borders only; the candidate drops them, matching Case A and "
+                            + "the option's documented meaning. TOLERANCES.md section 4");
+            return true;
+        }
+
+        // The 65 536th label wrapped to zero in a 16-bit label image, so the object
+        // was counted in the table and absent from the map.
+        if (id.startsWith("objects-65536/")
+                && "65535".equals(golden.get("label.distinct"))
+                && "65536".equals(candidate.get("label.distinct"))
+                && golden.get("objectCount").equals(candidate.get("objectCount"))) {
+            report.add(3, id, "16-bit label ceiling (declared)",
+                    "golden counted " + golden.get("objectCount") + " objects but its label "
+                            + "image held only 65535 of them; the candidate holds all "
+                            + candidate.get("label.distinct") + ". TOLERANCES.md section 4");
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Did the golden return exactly one object covering every voxel of the volume?
+     *
+     * <p>That is the fingerprint of counting the background: one object, and its
+     * voxel count equal to width x height x depth. Keying the allowance on the
+     * defect rather than on a fixture name means it covers each fixture that shows
+     * it and nothing else - a record where the golden happens to hold one large
+     * object that is <em>not</em> the whole volume is still compared normally.
+     */
+    /**
+     * Under {@code excludeOnEdges}, did the golden keep objects that the candidate
+     * drops, and does every one of them touch the first or last slice?
+     *
+     * <p>Checked from the bounding box the golden already records, so the claim is
+     * about the objects themselves rather than about the fixture's name. If the
+     * golden kept an object that does <em>not</em> touch a z border, this is some
+     * other difference and the record is compared normally.
+     */
+    /** More than one channel or more than one frame in the recorded input. */
+    private static boolean isHyperstack(CaptureRecord record) {
+        return moreThanOne(record.get("input.channels")) || moreThanOne(record.get("input.frames"));
+    }
+
+    private static boolean moreThanOne(String text) {
+        try {
+            return Integer.parseInt(text.trim()) > 1;
+        } catch (RuntimeException absent) {
+            return false;
+        }
+    }
+
+    private static boolean goldenKeptOnlyZBorderObjects(CaptureRecord golden,
+                                                        CaptureRecord candidate) {
+        int goldenCount;
+        int candidateCount;
+        try {
+            goldenCount = Integer.parseInt(golden.get("objectCount"));
+            candidateCount = Integer.parseInt(candidate.get("objectCount"));
+        } catch (NumberFormatException absent) {
+            return false;
+        }
+        if (goldenCount <= candidateCount || goldenCount == 0) return false;
+        int depth = depthOf(golden);
+        if (depth <= 1) return false;
+        for (int row = 0; row < goldenCount; row++) {
+            try {
+                double originZ = Double.parseDouble(golden.cell("BZ", row));
+                double extentZ = Double.parseDouble(golden.cell("B-depth", row));
+                boolean touchesZ = originZ == 0.0 || (originZ + extentZ) >= depth;
+                if (!touchesZ) return false;
+            } catch (RuntimeException unreadable) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean goldenObjectIsTheWholeVolume(CaptureRecord golden) {
+        if (!"1".equals(golden.get("objectCount"))) return false;
+        String dims = golden.get("label.dims");
+        String[] parts = dims == null ? null : dims.split("x");
+        if (parts == null || parts.length != 3) return false;
+        long volume;
+        double voxels;
+        try {
+            volume = Long.parseLong(parts[0].trim())
+                    * Long.parseLong(parts[1].trim())
+                    * Long.parseLong(parts[2].trim());
+            voxels = Double.parseDouble(golden.cell("Nb of obj. voxels", 0));
+        } catch (RuntimeException unreadable) {
+            return false;
+        }
+        return volume > 0 && voxels == (double) volume;
+    }
+
     private static boolean isDeclaredCrashFix(CaptureRecord golden, CaptureRecord candidate) {
         return "exception".equals(golden.get("outcome"))
                 && "ok".equals(candidate.get("outcome"))
@@ -265,6 +421,10 @@ public final class Differ {
             return;
         }
         HarnessCase harnessCase = golden.harnessCase;
+
+        if (isDeclaredDefectFix(golden, candidate, report)) {
+            return;
+        }
 
         if (isDeclaredCrashFix(golden, candidate)) {
             report.add(3, id, "crash fixed (declared)",
@@ -435,6 +595,71 @@ public final class Differ {
         return out;
     }
 
+    private static String[] splitCsv(String line) {
+        return line == null ? new String[0] : line.split(",", -1);
+    }
+
+    /**
+     * Compares one CSV line field by field.
+     *
+     * @param header       the file's header line, naming each field
+     * @param featureField index of a field naming the measurement this row is
+     *                     about, for the long-format scores file, or {@code -1}
+     *                     when each field is its own column as in the objects file
+     */
+    private static void diffCsvFields(CaptureRecord golden,
+                                      CaptureRecord candidate,
+                                      Report report,
+                                      String key,
+                                      String[] header,
+                                      String goldenLine,
+                                      String candidateLine,
+                                      int featureField) {
+        String[] goldenFields = splitCsv(goldenLine);
+        String[] candidateFields = splitCsv(candidateLine);
+        if (header.length == 0 || goldenFields.length != candidateFields.length) {
+            report.add(1, golden.id(), key,
+                    "field count differs, so this is a structural change: golden="
+                            + goldenLine + " candidate=" + candidateLine);
+            return;
+        }
+        String feature = featureField >= 0 && featureField < goldenFields.length
+                ? goldenFields[featureField].trim() : null;
+        for (int f = 0; f < goldenFields.length; f++) {
+            if (goldenFields[f].equals(candidateFields[f])) continue;
+            String columnName;
+            if (featureField < 0) {
+                columnName = f < header.length ? header[f].trim() : null;
+            } else {
+                // Only the two value fields carry a measurement; naming them
+                // explicitly keeps identity and statistics fields exact.
+                columnName = (f == featureField + 1 || f == featureField + 3)
+                        ? headingForFeature(feature, header) : null;
+            }
+            ColumnContract.Entry contract = columnName == null ? null
+                    : ColumnContract.lookup(columnName, golden.harnessCase);
+            if (contract == null) {
+                report.add(1, golden.id(), key + " field " + f
+                                + (columnName == null ? "" : " '" + columnName + "'"),
+                        "golden=" + goldenFields[f] + " candidate=" + candidateFields[f]);
+                continue;
+            }
+            compareCell(report, golden.id(), golden.harnessCase, contract, columnName,
+                    key + " '" + columnName + "'", goldenFields[f], candidateFields[f],
+                    depthOf(golden));
+        }
+    }
+
+    /** Resolves a scores-file feature name onto a column heading with its unit. */
+    private static String headingForFeature(String feature, String[] header) {
+        if (feature == null || feature.isEmpty()) return null;
+        for (int i = 0; i < header.length; i++) {
+            String name = header[i].trim();
+            if (name.equals(feature) || name.startsWith(feature + " (")) return name;
+        }
+        return feature;
+    }
+
     /** The column heading a summary field is the mean of, resolving unit suffixes. */
     private static String headingForSummaryField(String field, List<String> columns) {
         for (int i = 0; i < SUMMARY_FIELD_COLUMNS.length; i++) {
@@ -449,20 +674,48 @@ public final class Differ {
         return null;
     }
 
+    /**
+     * The one warning the unified engine adds that the old paths never could.
+     *
+     * <p>Hyperstack input now says which channel and frame it measured. That is
+     * the visible half of the ratified fix for silent plane truncation, so a
+     * candidate carrying exactly this extra warning is reported once at Tier 3.
+     * Any other new warning, and any change to a warning the golden already had,
+     * stays Tier 1.
+     */
+    private static final String CHANNEL_SELECTION_NOTICE = "measuring channel";
+
     private static void diffWarningText(CaptureRecord golden, CaptureRecord candidate, Report report) {
-        int count = 0;
+        int goldenCount;
+        int candidateCount;
         try {
-            count = Integer.parseInt(golden.get("warnings.count"));
+            goldenCount = Integer.parseInt(golden.get("warnings.count"));
+            candidateCount = Integer.parseInt(candidate.get("warnings.count"));
         } catch (NumberFormatException absent) {
             return;
         }
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < goldenCount; i++) {
             String key = "warnings." + i;
             if (!golden.get(key).equals(candidate.get(key))) {
                 report.add(1, golden.id(), key,
                         "golden=" + golden.get(key) + " candidate=" + candidate.get(key));
             }
         }
+        if (candidateCount == goldenCount) return;
+
+        boolean everyExtraIsTheNotice = candidateCount > goldenCount;
+        for (int i = goldenCount; i < candidateCount && everyExtraIsTheNotice; i++) {
+            everyExtraIsTheNotice = candidate.get("warnings." + i)
+                    .contains(CHANNEL_SELECTION_NOTICE);
+        }
+        if (everyExtraIsTheNotice) {
+            report.add(3, golden.id(), "channel/frame notice (declared)",
+                    "the unified engine reports which channel and frame it measured: "
+                            + candidate.get("warnings." + goldenCount));
+            return;
+        }
+        report.add(1, golden.id(), "warnings.count",
+                "golden=" + goldenCount + " candidate=" + candidateCount);
     }
 
     /**
@@ -474,13 +727,43 @@ public final class Differ {
      */
     private static void diffCsvLines(CaptureRecord golden, CaptureRecord candidate, Report report) {
         List<String> keys = golden.scalarKeys();
+        String[] objectHeader = splitCsv(golden.get("csv.objects.0"));
+        String[] scoreHeader = splitCsv(golden.get("csv.scores.0"));
         for (int i = 0; i < keys.size(); i++) {
             String key = keys.get(i);
             if (!key.startsWith("csv.")) continue;
-            if (!golden.get(key).equals(candidate.get(key))) {
-                report.add(1, golden.id(), key,
-                        "golden=" + golden.get(key) + " candidate=" + candidate.get(key));
+            String goldenLine = golden.get(key);
+            String candidateLine = candidate.get(key);
+            if (goldenLine.equals(candidateLine)) continue;
+
+            // TOLERANCES.md section 1 asks for batch_objects.csv to be "tiered per
+            // column". Comparing whole lines as exact text did not do that, and it
+            // double-counted: a declared Tier 2 column difference - the calibrated
+            // Surface value, float-accumulated in the reference and double in the
+            // candidate - reappeared here as a Tier 1 line mismatch.
+            //
+            // Structure is still Tier 1. Only a cell whose column has a contract is
+            // tiered, and it is tiered by that contract.
+            if (key.startsWith("csv.objects.") && !key.endsWith(".0")) {
+                diffCsvFields(golden, candidate, report, key, objectHeader,
+                        goldenLine, candidateLine, -1);
+                continue;
             }
+            if (key.startsWith("csv.scores.") && !key.endsWith(".0")) {
+                // Field 4 names the feature; the value columns are 5 (RawValue) and
+                // 7 (ScoringValue). Everything else - object identity, units,
+                // z-score, percentile, reference statistics - stays exact, so a
+                // changed object still fails as loudly as before.
+                // The objects header is passed deliberately: it is where a feature
+                // name such as "Surface" can be resolved to the heading that
+                // carries its unit, and so to its column contract. The scores
+                // header names positions, not measurements.
+                diffCsvFields(golden, candidate, report, key, objectHeader,
+                        goldenLine, candidateLine, 4);
+                continue;
+            }
+            report.add(1, golden.id(), key,
+                    "golden=" + goldenLine + " candidate=" + candidateLine);
         }
         List<String> candidateKeys = candidate.scalarKeys();
         for (int i = 0; i < candidateKeys.size(); i++) {

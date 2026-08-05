@@ -216,6 +216,8 @@ public final class OC3DPlus {
         private boolean measureFractalXY;
         private boolean measureCompositeIndices;
         private boolean measureArborization;
+        private int channel = OC3DPlusParameters.USE_CURRENT_POSITION;
+        private int frame = OC3DPlusParameters.USE_CURRENT_POSITION;
 
         private Builder() {}
 
@@ -291,6 +293,29 @@ public final class OC3DPlus {
             return this;
         }
 
+        /**
+         * Which channel of a multichannel image to measure, 1-based.
+         *
+         * <p>Leave unset, or pass
+         * {@link OC3DPlusParameters#USE_CURRENT_POSITION}, to measure whichever
+         * channel the image is showing. Ignored for a plain 3D stack. Out-of-range
+         * values clamp to the last channel rather than failing.
+         */
+        public Builder channel(int oneBased) {
+            this.channel = Math.max(OC3DPlusParameters.USE_CURRENT_POSITION, oneBased);
+            return this;
+        }
+
+        /**
+         * Which frame (time point) to measure, 1-based.
+         *
+         * @see #channel(int)
+         */
+        public Builder frame(int oneBased) {
+            this.frame = Math.max(OC3DPlusParameters.USE_CURRENT_POSITION, oneBased);
+            return this;
+        }
+
         public OC3DPlusParameters build() {
             if (maxSize < minSize) {
                 throw new IllegalStateException(
@@ -302,7 +327,9 @@ public final class OC3DPlus {
                     intensityImage,
                     warningSink,
                     new OC3DPlusMeasurements(measureFractalXY,
-                            measureCompositeIndices, measureArborization));
+                            measureCompositeIndices, measureArborization),
+                    channel,
+                    frame);
         }
     }
 

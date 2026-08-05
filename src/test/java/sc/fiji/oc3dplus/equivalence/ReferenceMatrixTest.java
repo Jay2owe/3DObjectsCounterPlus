@@ -23,11 +23,17 @@ import static org.junit.Assert.fail;
  * presence of {@code Median} distinguishes Case A from Case B on the current
  * build.
  *
- * <p>That fingerprint is deliberately kept out of the golden records. It
- * disappears in Stage 03 by construction - no accumulator computes a median - and
- * recording it would turn one finding into a diff on every Case A record. The
- * column-set comparison in {@link Differ} reports the loss once, which is the
- * right number of times.
+ * <p><b>Stage 03 retired that fingerprint</b>, and not in the direction expected.
+ * The plan assumed {@code Median} would vanish, because no accumulator computed
+ * one; instead a median was implemented, so <em>every</em> input shape emits the
+ * column and it no longer distinguishes anything. The routing it detected is gone
+ * too. What remains worth asserting is that one engine now serves every shape -
+ * see {@link #everyCaseProducesTheSameColumns()}.
+ *
+ * <p>The fingerprint was deliberately kept out of the golden records, which turned
+ * out to be the right call for a reason other than the one given at the time: had
+ * it been recorded, the column's arrival on Cases B and C would have shown up as a
+ * diff on every record rather than once.
  */
 public class ReferenceMatrixTest {
 
@@ -62,19 +68,48 @@ public class ReferenceMatrixTest {
         }
     }
 
+    /**
+     * Every fixture now produces the same columns, whatever case it is declared.
+     *
+     * <p>This replaces {@code caseBFixturesTakeTheNativePath}, which asserted that
+     * Case B fixtures produced <b>no</b> {@code Median} column and so had gone to
+     * mcib3d. That was a sound fingerprint while two engines existed. With one
+     * engine it is not merely obsolete but backwards: {@code Median} is now emitted
+     * for every input shape.
+     *
+     * <p>What is worth asserting instead is the property unification is <em>for</em>
+     * - that the shape of a user's input no longer changes the shape of their
+     * results table. If a future change reintroduces a second path, this fails.
+     */
     @Test
-    public void caseBFixturesTakeTheNativePath() {
+    public void everyCaseProducesTheSameColumns() {
         List<Fixture> fixtures = FixtureCorpus.all();
+        String reference = null;
+        String referenceName = null;
         for (int i = 0; i < fixtures.size(); i++) {
             Fixture fixture = fixtures.get(i);
-            if (fixture.harnessCase != HarnessCase.B) continue;
+            // Case C enters through fromLabelImage with an already-labelled image,
+            // which is a different entry point rather than a different engine.
+            if (fixture.harnessCase == HarnessCase.C) continue;
+            if (isExpectedToThrow(fixture)) continue;
             String columns = columnsOf(fixture);
-            if (columns == null) continue;
-            assertTrue("fixture '" + fixture.name + "' is declared Case B but produced a "
-                            + CLASSIC_PATH_MARKER + " column, so it took the classic path. "
-                            + "Columns: " + columns,
-                    !columns.contains(CLASSIC_PATH_MARKER));
+            if (columns == null || columns.isEmpty()) continue;
+            // The Volume and Surface headings carry the image's unit, so a
+            // calibrated fixture legitimately spells them differently. Compare the
+            // schema, not the unit.
+            columns = columns.replaceAll("\\([^)]*\\)", "(unit)");
+            if (reference == null) {
+                reference = columns;
+                referenceName = fixture.name;
+                continue;
+            }
+            assertEquals("fixture '" + fixture.name + "' (case " + fixture.harnessCase
+                            + ") produced a different column set from '" + referenceName
+                            + "', so input shape is still steering the output schema",
+                    reference, columns);
         }
+        assertTrue("no fixture produced columns, so this asserted nothing",
+                reference != null);
     }
 
     /**

@@ -507,6 +507,33 @@ public final class OC3DPlusRunner {
             return matchingIntensityImageOrNull(volume, reduced) == null
                     ? discardAndReturnNull(reduced) : reduced;
         }
+
+        // A redirect that is a plain stack the same size as the source's whole
+        // stack is laid out like the source, one plane per plane - which is how
+        // ImageJ hands back a duplicated hyperstack that has lost its dimensions.
+        // Taking it wholesale would leave it four times the depth of the labelled
+        // volume, and the measurement would silently become NaN, so mirror the
+        // source's dimensions onto it and take the same channel and frame.
+        int sourcePlanes = channelImage == null || channelImage.getStack() == null
+                ? 0 : channelImage.getStack().getSize();
+        int requestedPlanes = requested.getStack() == null ? 0 : requested.getStack().getSize();
+        if (volume != channelImage && sourcePlanes > 0 && requestedPlanes == sourcePlanes) {
+            ImagePlus mirrored = new ImagePlus(requested.getTitle(), requested.getStack());
+            mirrored.setDimensions(Math.max(1, channelImage.getNChannels()),
+                    Math.max(1, channelImage.getNSlices()),
+                    Math.max(1, channelImage.getNFrames()));
+            if (requested.getCalibration() != null) {
+                mirrored.setCalibration(requested.getCalibration().copy());
+            }
+            int channel = resolvePosition(safe.channel, channelImage.getC(),
+                    Math.max(1, channelImage.getNChannels()));
+            int frame = resolvePosition(safe.frame, channelImage.getT(),
+                    Math.max(1, channelImage.getNFrames()));
+            ImagePlus reduced = sc.fiji.oc3d.core.label.LabelImages.volumeOf(
+                    mirrored, channel, frame);
+            return matchingIntensityImageOrNull(volume, reduced) == null
+                    ? discardAndReturnNull(reduced) : reduced;
+        }
         return matchingIntensityImageOrNull(volume, requested);
     }
 

@@ -310,6 +310,37 @@ and `(float) exactSum` can differ from it by more than a rounding step. Objects
 whose intensity sum or coordinate sum exceeds 2^24 are therefore itemised with
 absolute and relative deltas, and passed only by explicit sign-off.
 
+### The rule does not hold, and the reason is my error in stating it
+
+**Measured 2026-08-05. Not widened — recorded.**
+
+`float-narrow` was described above as asserting "that the new double-precision
+value rounds to exactly the `float` the shipped plugin reported". That is only
+true if the reference is an exact value rounded once to `float`. It is not:
+`Counter3D` accumulates the centroid and intensity sums **in `float`**, so its
+result carries the error of *N* float additions, not of one rounding.
+
+Measured on `u-shape`, a 37-voxel object — nowhere near the 2²⁴ limit §3 warned
+about:
+
+| | value |
+|---|---|
+| golden `Z` | 3.324324131011963 |
+| candidate `Z` | 3.324324324324324 |
+| exact (123/37) | 3.3243243243243… |
+
+The candidate is right and the golden is the float-accumulated approximation.
+They differ by 5.8e-8 relative, which is about 2 units in the last place of a
+`float` — more than the one-rounding-step the rule assumes, so `(float)candidate
+!= golden` and the rule fails. It fails on small objects, so the 2²⁴ caveat does
+not cover it.
+
+This affects `X Y Z XM YM ZM IntDen Mean` on Case A. The bound is **not** widened
+here: §5 forbids changing a bound after seeing a result, and the fault is in the
+justification rather than in the number. The choice — accept a small relative
+bound derived from float accumulation, or accept these columns as Tier 3
+sign-offs — is the user's, and is open.
+
 **RATIFIED 2026-08-04 by the user: option 1, adopt `float-narrow`.**
 
 1. ✅ **Adopt `float-narrow`** for these nine Case A columns, and record in the
@@ -332,6 +363,7 @@ rather than assumed so that Stage 03's gate rests on a stated decision.
 | `Morph_Feret3D_um` | C | 3 | signoff | - | 13-direction bounded estimate vs mcib3d's exact pairwise Feret. Can only under-estimate. Delta distribution (min/median/p95/max) is captured in Stage 02 and feeds the Stage 06 decision. **Not** Tier 3 on Cases A and B: they already report the 13-direction estimate today (§0.1). |
 | Object set under `excludeOnEdges` | A | 3 | signoff | - | `Counter3D.findObjects` flags edge contact against the provisional id a voxel carries in its second pass and `replaceID` does not carry the flag across a later merge, so an edge-touching object can survive the filter. `StreamingLabeller` drops it, which is what the option documents. A fix. With `excludeOnEdges` off - the default - Tier 1 stands unchanged. |
 | Single-slice surface columns | A | 3 | signoff | - | For a one-slice stack `Counter3D` reports the object as 2D: `Surface` 36.0 and `Nb of surf. voxels` 20 for a solid 6×6 square, against 96.0 and 36 from the accumulator, which counts both z faces (§0.3). Measured, not inferred. Not mentioned anywhere in the parent plan. Needs a CHANGELOG entry: surface and surface-voxel counts change for single-plane input. Sphericity and compactness are unaffected. |
+| `Median` under a redirect | A | 3 | signoff | - | **OPEN — awaiting sign-off.** With a redirect image the shipped plugin measures `IntDen`, `Mean`, `StdDev`, `Min`, `Max`, `XM`, `YM`, `ZM` from the redirect and `Median` from the **source** — `applyRedirectedIntensityColumns` overwrites the others and not `Median`, and `Counter3D` never saw the redirect. So today the median describes a different image from the mean beside it. The unified engine measures every intensity column from the redirect, which makes them consistent. Measured on `conn-face/redirect-on`: 200.0 (source) becomes 134.5 (redirect). A fix, but Case A output moves whenever a redirect is used. |
 | `Median` | B,C | 3 | signoff | - | The column is new on these cases. Case A has always had it and keeps it bit-identically; with one engine there is one column set, and it is Case A's. Additive — nothing is lost — but it is a schema change, so it is signed off rather than tolerated. `Differ.isDeclaredAddition` pins the allowance to this column and these two cases alone. |
 | Foreground rule at threshold 0 | B | 3 | signoff | - | **OPEN — awaiting sign-off.** `Counter3D` zeroes sub-threshold voxels and labels the non-zero remainder, so zero is background whatever the threshold says; mcib3d's `applyBinaryThreshold` does not exclude zero. At threshold 0 the two therefore disagree completely, and one engine can only have one rule. Case A's is adopted, so `blobs-32bit/thr-all-foreground` goes from **1 object** (the entire volume, background included) to **3** (the three blobs the fixture contains). Case A unaffected — it already behaved this way. |
 | Objects above the 65 535 label ceiling | A | 3 | signoff | - | **OPEN — awaiting sign-off.** A new finding. On `objects-65536` the shipped build reports `objectCount=65536` and 65 536 table rows, while its 16-bit label image holds `label.distinct=65535`, `label.max=65535`: the 65 536th label overflows to 0 and that object is invisible in the map it is counted in. Statistics table and label image disagree. The unified path represents all 65 536. `objects-65534` and `objects-65535` are unaffected, which locates the ceiling exactly. |
