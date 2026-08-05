@@ -161,16 +161,112 @@ public class LargeStackCeilingProbeTest {
     }
 
     /**
-     * A virtual stack that generates 16-bit slices on demand, so a volume above
+     * The "after" half: the same class of volume on the unified path, which must
+     * <b>complete</b>.
+     *
+     * <pre>
+     * mvn -o -B test -Dtest=LargeStackCeilingProbeTest#theUnifiedPathCompletesAboveTheCeiling \
+     *     -Doc3dplus.aboveCeiling=true -DargLine="-Xmx5g"
+     * </pre>
+     *
+     * <p>Gated behind a property and given its own heap because it is the one test
+     * here whose cost is real: the ceiling can only be shown to be gone by
+     * producing a label image for a volume above it, and that image is
+     * {@code width * height * depth} bytes however cheaply the input is streamed.
+     *
+     * <p>The dimensions are chosen to sit just above 2<sup>31</sup> rather than far
+     * above it, and the fixture holds few enough objects for an 8-bit label image,
+     * so the run needs about 2.1 GB rather than the 5.8 GB the real timelapse's
+     * shape would take at 16-bit. That is not weakening the test: the claim is
+     * about {@code int} index arithmetic, which either overflows at 2<sup>31</sup>
+     * voxels or does not, and one voxel past the ceiling tests it as well as a
+     * billion.
+     *
+     * <p>An {@code OutOfMemoryError} here is <b>not</b> a pass and not a failure of
+     * the claim either - it means the run never reached the arithmetic, and the
+     * message says so rather than letting the absence of a crash read as success.
+     */
+    @Test
+    public void theUnifiedPathCompletesAboveTheCeiling() {
+        Assume.assumeTrue("set -Doc3dplus.aboveCeiling=true (needs roughly -Xmx5g)",
+                Boolean.getBoolean("oc3dplus.aboveCeiling"));
+
+        int width = 1024;
+        int height = 1024;
+        int depth = 2050;
+        long voxels = (long) width * height * depth;
+        // Stride 128 in x and y, every slice, so each lattice site is one column
+        // running the full depth: 8 x 8 = 64 objects, comfortably inside the 255
+        // that keep the label image 8-bit.
+        int stride = 128;
+        int expectedObjects = (width / stride) * (height / stride);
+
+        ImagePlus image = new ImagePlus("above-2^31",
+                new GeneratedVirtualStack(width, height, depth, stride));
+        ImagePlus labels = null;
+        try {
+            System.out.println("=== 2^31 ceiling, unified path ===");
+            System.out.println("  dimensions  " + width + "x" + height + "x" + depth);
+            System.out.println("  voxels      " + voxels + "  (" + (voxels - INT_CEILING)
+                    + " above the ceiling)  as int " + (int) voxels);
+            System.out.println("  maxMemory   "
+                    + Runtime.getRuntime().maxMemory() / (1024 * 1024) + " MB");
+
+            long started = System.currentTimeMillis();
+            try {
+                OC3DPlusResult result = OC3DPlus.count(image, OC3DPlus.builder()
+                        .threshold(100).minSize(1).build());
+                labels = result.labelImage();
+                long elapsed = System.currentTimeMillis() - started;
+                System.out.println("  elapsed     " + elapsed + " ms");
+                System.out.println("  RESULT      COMPLETED with " + result.objectCount()
+                        + " objects - the 2^31 ceiling is gone from this path");
+                org.junit.Assert.assertEquals(
+                        "the lattice puts one column at each site, running the full depth",
+                        expectedObjects, result.objectCount());
+                org.junit.Assert.assertNotNull("a completed run returns a label image", labels);
+                org.junit.Assert.assertEquals("the label image spans the whole volume",
+                        depth, labels.getStack().getSize());
+            } catch (NegativeArraySizeException overflow) {
+                org.junit.Assert.fail("the unified path still overflows an int index: "
+                        + "NegativeArraySizeException(" + overflow.getMessage() + "). "
+                        + "The ceiling-removal claim must be dropped.");
+            } catch (OutOfMemoryError memory) {
+                org.junit.Assert.fail("ran out of heap before reaching the arithmetic, so this "
+                        + "run says nothing about the ceiling either way. Rerun with a larger "
+                        + "-Xmx; the label image alone needs " + (voxels / (1024 * 1024))
+                        + " MB at one byte per voxel.");
+            }
+        } finally {
+            Stacks.discard(labels);
+            Stacks.discard(image);
+        }
+    }
+
+    /**
+     * A virtual stack that generates slices on demand, so a volume above
      * 2<sup>31</sup> voxels can be presented to the engine without reading or
      * allocating one.
      */
     private static final class GeneratedVirtualStack extends ij.VirtualStack {
         private final int depth;
+        private final int stride;
+        private final boolean eightBit;
 
         GeneratedVirtualStack(int width, int height, int depth) {
+            this(width, height, depth, 64, false);
+        }
+
+        GeneratedVirtualStack(int width, int height, int depth, int stride) {
+            this(width, height, depth, stride, true);
+        }
+
+        private GeneratedVirtualStack(int width, int height, int depth,
+                                      int stride, boolean eightBit) {
             super(width, height, null, "");
             this.depth = depth;
+            this.stride = stride;
+            this.eightBit = eightBit;
         }
 
         @Override public int getSize() {
@@ -178,14 +274,19 @@ public class LargeStackCeilingProbeTest {
         }
 
         @Override public ij.process.ImageProcessor getProcessor(int slice) {
-            ij.process.ShortProcessor processor =
-                    new ij.process.ShortProcessor(getWidth(), getHeight());
-            // A handful of blobs per slice, deterministic, so the volume is not empty.
-            for (int y = 8; y < getHeight(); y += 64) {
-                for (int x = 8; x < getWidth(); x += 64) {
+            ij.process.ImageProcessor processor = eightBit
+                    ? new ij.process.ByteProcessor(getWidth(), getHeight())
+                    : new ij.process.ShortProcessor(getWidth(), getHeight());
+            // One voxel per lattice site per slice, deterministic, so each site is a
+            // single column running the full depth and the object count is known
+            // without measuring it.
+            for (int y = stride / 8; y < getHeight(); y += stride) {
+                for (int x = stride / 8; x < getWidth(); x += stride) {
                     processor.set(x, y, 200);
-                    processor.set(x + 1, y, 200);
-                    processor.set(x, y + 1, 200);
+                    if (!eightBit) {
+                        processor.set(x + 1, y, 200);
+                        processor.set(x, y + 1, 200);
+                    }
                 }
             }
             return processor;
