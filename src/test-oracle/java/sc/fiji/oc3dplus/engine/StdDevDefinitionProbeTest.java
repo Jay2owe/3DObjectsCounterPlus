@@ -59,7 +59,7 @@ public class StdDevDefinitionProbeTest {
             ImagePlus image = cubeWithVaryingIntensity(side);
             ImagePlus labels = null;
             try {
-                ObjectsCounter3DWrapper.Result classic = new ObjectsCounter3DWrapper().run(
+                ObjectsCounter3DWrapper.Result classic = new ReferenceEngines().run(
                         image, 100, 0, Integer.MAX_VALUE, false, false, true, false);
                 ResultsTable stats = classic.getStatistics();
                 labels = classic.getObjectsMap();

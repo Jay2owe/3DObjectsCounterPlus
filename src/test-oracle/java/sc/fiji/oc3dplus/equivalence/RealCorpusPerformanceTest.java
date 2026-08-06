@@ -7,6 +7,7 @@ import org.junit.Test;
 import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
 import sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper;
+import sc.fiji.oc3dplus.engine.ReferenceEngines;
 
 import java.io.File;
 import java.io.IOException;
@@ -194,7 +195,7 @@ public class RealCorpusPerformanceTest {
         try {
             resetPeakHeap();
             long started = System.nanoTime();
-            new ObjectsCounter3DWrapper().run(image, row.threshold, 10, Integer.MAX_VALUE,
+            new ReferenceEngines().run(image, row.threshold, 10, Integer.MAX_VALUE,
                     false, false, false, false);
             row.classicMillis = (System.nanoTime() - started) / 1000000L;
             row.classicPeakBytes = peakHeap();
@@ -236,7 +237,7 @@ public class RealCorpusPerformanceTest {
      * slice. Using it rather than a fixed number keeps the figures on the volume a
      * user would actually have counted.
      */
-    private static int isoDataAtCentreSlice(ImagePlus image) {
+    static int isoDataAtCentreSlice(ImagePlus image) {
         int planes = image.getStack().getSize();
         try {
             double threshold = image.getStack()

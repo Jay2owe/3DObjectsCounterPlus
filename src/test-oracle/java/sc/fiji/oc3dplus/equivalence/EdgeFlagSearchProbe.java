@@ -7,6 +7,7 @@ import org.junit.Test;
 import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
 import sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper;
+import sc.fiji.oc3dplus.engine.ReferenceEngines;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -156,7 +157,7 @@ public class EdgeFlagSearchProbe {
     }
 
     private static Set<String> classicObjects(ImagePlus input) {
-        ObjectsCounter3DWrapper.Result result = new ObjectsCounter3DWrapper().run(
+        ObjectsCounter3DWrapper.Result result = new ReferenceEngines().run(
                 input, 100, 1, Integer.MAX_VALUE, true, false, false, false);
         return keys(result.getStatistics());
     }

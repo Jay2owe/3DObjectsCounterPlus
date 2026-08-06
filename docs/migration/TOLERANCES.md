@@ -205,19 +205,55 @@ placement. A missing or extra column is a Tier 1 failure in its own right.
 | `Morph_Sphericity` | A,B | 1 | exact | - | Already computed by `LabelFeatureAccumulator` on both paths (§0.1); the code does not change. |
 | `Morph_Compactness` | A,B | 1 | exact | - | As `Morph_Sphericity`. |
 | `Morph_Elongation` | A,B | 1 | exact | - | As `Morph_Sphericity`. |
-| `Morph_Feret3D_um` | A,B | 1 | exact | - | As `Morph_Sphericity`. The 13-direction estimate is already what Cases A and B report today. |
-| `Morph_FractalDim_XY` | A,B,C | 1 | exact | - | `engine/extended/` runs downstream of the label map and touches no mcib3d. Harness §4. |
+| `Morph_Feret3D_um` | A,B | 1 | exact | - | As `Morph_Sphericity`. **Still exact after the 2026-08-06 direction-set change, and that is a measurement, not an assumption:** the set went from 13 lattice directions to those 13 plus 51 near-uniform ones, and every golden value on Cases A and B stayed bit-identical (`nonZero=0`, 1901 and 36 comparisons). It can only do that because the corpus contains no object whose longest axis is oblique enough to distinguish the two sets - a blind spot in the corpus, not a property of the change. On real objects the same change moves Feret by up to 11%; see `FERET_DELTA.md` section 6. |
+| `Morph_FractalDim_XY` | A,B,C | 1 | exact | - | `engine/extended/` runs downstream of the label map. Harness §4. True for this column: the fractal, lacunarity, RI and Sholl code touches no mcib3d. **Not true for `Morph_SRI`, `Morph_PB`, `Morph_MP` and `Morph_VSD` - see the note below this table.** |
 | `Morph_FractalDim_XY_R2` | A,B,C | 1 | exact | - | As above. |
 | `Morph_LacunarityMean_XY` | A,B,C | 1 | exact | - | As above. |
 | `Morph_LacunaritySpread_XY` | A,B,C | 1 | exact | - | As above. |
 | `Morph_RI` | A,B,C | 1 | exact | - | As above. |
-| `Morph_SRI` | A,B,C | 1 | exact | - | As above. |
-| `Morph_PB` | A,B,C | 1 | exact | - | As above. |
-| `Morph_MP` | A,B,C | 1 | exact | - | As above. |
-| `Morph_VSD` | A,B,C | 1 | exact | - | As above. |
+| `Morph_SRI` | A,B,C | 1 | exact | - | **The justification for Tier 1 here is false, though the rule still holds today.** This column is computed from mcib3d, via `CompositeInputMeasurements` (centroid-to-surface distance mean and SD), which the plan and handoff both say does not exist. Stage 04 cannot remove mcib3d without changing it. Re-tier with measured deltas once reimplemented in core - see the note below. |
+| `Morph_PB` | A,B,C | 1 | exact | - | **The justification for Tier 1 here is false, though the rule still holds today.** This column is computed from mcib3d, via `CompositeInputMeasurements` (ellipsoid spareness), which the plan and handoff both say does not exist. Stage 04 cannot remove mcib3d without changing it. Re-tier with measured deltas once reimplemented in core - see the note below. |
+| `Morph_MP` | A,B,C | 1 | exact | - | **The justification for Tier 1 here is false, though the rule still holds today.** This column is computed from mcib3d, via `CompositeInputMeasurements` (ellipsoid elongation and flatness), which the plan and handoff both say does not exist. Stage 04 cannot remove mcib3d without changing it. Re-tier with measured deltas once reimplemented in core - see the note below. |
+| `Morph_VSD` | A,B,C | 1 | exact | - | **The justification for Tier 1 here is false, though the rule still holds today.** This column is computed from mcib3d, via `CompositeInputMeasurements` (exact pairwise Feret and ellipsoid volume), which the plan and handoff both say does not exist. Stage 04 cannot remove mcib3d without changing it. Re-tier with measured deltas once reimplemented in core - see the note below. |
 | `Morph_ShollCriticalRadius_um` | A,B,C | 1 | exact | - | As above. |
 | `Morph_ShollCriticalIntersections` | A,B,C | 1 | exact | - | As above. |
 | `Morph_ShollSchoenenIndex` | A,B,C | 1 | exact | - | As above. |
+
+> ### The `engine/extended/` premise is wrong, and four rows above depend on it
+>
+> Added 2026-08-06, during Stage 04.
+>
+> `HANDOFF.md` and `04_delete_dependencies.md` both state that every `mcib3d`
+> reference in `src/main` lives in `ObjectsCounter3DWrapper`, and that
+> `engine/extended/` "does NOT touch mcib3d at all". The second claim is false.
+> `engine/extended/CompositeInputMeasurements.java` obtains seven values from
+> mcib3d - centroid-to-surface distance mean and SD, ellipsoid spareness,
+> elongation and flatness, exact pairwise Feret, and ellipsoid volume - and they
+> feed `Morph_SRI`, `Morph_PB`, `Morph_MP` and `Morph_VSD`.
+>
+> So those four rows are Tier 1 on a justification that does not hold, and
+> removing mcib3d necessarily changes them. Two of the changes are already
+> predictable:
+>
+> - **`Morph_VSD` will move on every case.** It currently divides mcib3d's
+>   *exact* Feret by mcib3d's ellipsoid volume, while `Morph_Feret3D_um` in the
+>   same table reports the bounded estimate. Recomputing it from core's own Feret
+>   makes the two consistent and changes the value.
+> - **`Morph_PB` cannot be reproduced bit-exactly.** mcib3d's `ELL_SPARENESS`
+>   rasterises a fitted ellipsoid with `ObjectCreator3D.createEllipsoidAxesUnit`
+>   and divides voxel counts. That is a discrete, implementation-specific
+>   quantity; an independent implementation agrees with it only by accident.
+>   Read from the shipped bytecode, not assumed.
+>
+> Decision taken 2026-08-06: reimplement the inputs in `oc3d-core`, measure what
+> each of the four columns does against the goldens, and re-tier them to Tier 3
+> with those numbers as the justification.
+>
+> Their rule cells still read `exact`, and that is deliberate. Today those columns
+> *are* exact against the goldens, because the code computing them has not changed
+> yet - only the stated reason for expecting it to was wrong. A rule may not be
+> loosened before the measurement that justifies it exists, so the correction here
+> is to the justification, and the re-tiering waits for numbers.
 | `Morph_ShollPrimaryBranches` | A,B,C | 1 | exact | - | As above. |
 | `Morph_SkeletonBranches` | A,B,C | 1 | exact | - | As above. |
 | `Morph_SkeletonJunctions` | A,B,C | 1 | exact | - | As above. |

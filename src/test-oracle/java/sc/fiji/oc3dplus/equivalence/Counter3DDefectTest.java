@@ -44,7 +44,7 @@ public class Counter3DDefectTest {
             // below asserts. This test's job is to keep the defect itself
             // evidenced, in this repository, for as long as the jar is a
             // dependency.
-            new sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper().run(
+            new sc.fiji.oc3dplus.engine.ReferenceEngines().run(
                     input, 100, 1, Integer.MAX_VALUE, false, false, true, false);
             fail("expected the classic Counter3D to throw on a stack whose final voxel is an "
                     + "isolated object; if this now passes, the shipped jar changed and both "

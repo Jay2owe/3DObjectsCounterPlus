@@ -10,6 +10,7 @@ import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusParameters;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
 import sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper;
+import sc.fiji.oc3dplus.engine.ReferenceEngines;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -46,7 +47,7 @@ public class UnifiedEngineFixesTest {
         ImagePlus input = manyIsolatedObjects(65536);
         ImagePlus labels = null;
         try {
-            ObjectsCounter3DWrapper.Result result = new ObjectsCounter3DWrapper().run(
+            ObjectsCounter3DWrapper.Result result = new ReferenceEngines().run(
                     input, 100, 1, Integer.MAX_VALUE, false, false, true, false);
             labels = result.getObjectsMap();
             ResultsTable stats = result.getStatistics();
@@ -106,7 +107,7 @@ public class UnifiedEngineFixesTest {
             ImagePlus classicLabels = null;
             ImagePlus unifiedLabels = null;
             try {
-                ObjectsCounter3DWrapper.Result classic = new ObjectsCounter3DWrapper().run(
+                ObjectsCounter3DWrapper.Result classic = new ReferenceEngines().run(
                         input, 100, 1, Integer.MAX_VALUE, false, false, true, false);
                 classicLabels = classic.getObjectsMap();
                 OC3DPlusResult unified = OC3DPlus.count(input,

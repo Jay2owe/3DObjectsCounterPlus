@@ -875,46 +875,16 @@ public class OC3DPlusRunnerTest {
     }
 
     private static final class RecordingCounterBackend implements OC3DPlusRunner.CounterBackend {
-        private final ImagePlus classicLabelImage;
-        private final ImagePlus nativeLabelImage;
         private Set<Integer> labelsMeasuredFromFinalMap = new HashSet<Integer>();
-        private int classicRuns;
-        private int nativeRuns;
         private int fromLabelImageRuns;
 
-        RecordingCounterBackend(ImagePlus classicLabelImage, ImagePlus nativeLabelImage) {
-            this.classicLabelImage = classicLabelImage;
-            this.nativeLabelImage = nativeLabelImage;
+        RecordingCounterBackend(ImagePlus unusedClassicLabelImage, ImagePlus unusedNativeLabelImage) {
+            // The two label images used to stand in for the two detection engines this
+            // backend faked. Kept in the signature so the call sites read unchanged.
         }
 
-        @Override public ObjectsCounter3DWrapper.Result run(
-                ImagePlus img,
-                int threshold,
-                int minSize,
-                int maxSize,
-                boolean excludeOnEdges,
-                boolean redirect,
-                boolean wantObjectsMap,
-                boolean wantMaskedImage) {
-            classicRuns++;
-            return resultFor(classicLabelImage);
-        }
-
-        @Override public ObjectsCounter3DWrapper.Result runNative(
-                ImagePlus img,
-                int threshold,
-                int minSize,
-                int maxSize,
-                boolean excludeOnEdges,
-                ImagePlus redirectImage,
-                boolean wantObjectsMap,
-                boolean wantMaskedImage,
-                ProgressReporter progress,
-                boolean finishProgress) {
-            nativeRuns++;
-            return resultFor(nativeLabelImage);
-        }
-
+        // run and runNative are gone from CounterBackend: detection no longer goes
+        // through the backend at all, so there is nothing for a fake to record.
         @Override public ObjectsCounter3DWrapper.Result fromLabelImage(
                 ImagePlus labelImage,
                 ImagePlus redirectImage,

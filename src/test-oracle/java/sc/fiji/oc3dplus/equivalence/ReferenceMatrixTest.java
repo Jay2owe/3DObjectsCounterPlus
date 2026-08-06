@@ -6,6 +6,7 @@ import org.junit.Test;
 import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
 import sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper;
+import sc.fiji.oc3dplus.engine.ReferenceEngines;
 
 import java.util.List;
 
@@ -43,7 +44,7 @@ public class ReferenceMatrixTest {
     public void bothGplReferencesArePresent() {
         assertTrue("mcib3d-core must be on the test classpath to capture the Case B and C "
                         + "references; it is removed in Stage 04, not here",
-                ObjectsCounter3DWrapper.isMcib3dAvailable());
+                ReferenceEngines.isMcib3dAvailable());
         try {
             Class.forName("Utilities.Counter3D");
         } catch (ClassNotFoundException missing) {

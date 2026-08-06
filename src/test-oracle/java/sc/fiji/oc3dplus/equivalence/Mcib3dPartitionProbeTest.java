@@ -9,6 +9,7 @@ import sc.fiji.oc3d.core.label.LabelParameters;
 import sc.fiji.oc3d.core.label.LabelResult;
 import sc.fiji.oc3d.core.label.StreamingLabeller;
 import sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper;
+import sc.fiji.oc3dplus.engine.ReferenceEngines;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -185,7 +186,7 @@ public class Mcib3dPartitionProbeTest {
                             + " t=" + Math.max(1, input.getNFrames())
                             + " bitDepth=" + input.getBitDepth());
 
-                    ObjectsCounter3DWrapper.Result native3d = new ObjectsCounter3DWrapper().runNative(
+                    ObjectsCounter3DWrapper.Result native3d = new ReferenceEngines().runNative(
                             input, config.threshold, config.minSize, config.maxSize,
                             config.excludeOnEdges, null, true, false);
                     mcib3dLabels = native3d == null ? null : native3d.getObjectsMap();
@@ -283,7 +284,7 @@ public class Mcib3dPartitionProbeTest {
                     + " stack=" + planes + " c=" + channels + " z=" + slices + " t=1");
             System.out.println("  markers      one per stack plane, at (p+1, p+1) on plane p");
 
-            ObjectsCounter3DWrapper.Result result = new ObjectsCounter3DWrapper().runNative(
+            ObjectsCounter3DWrapper.Result result = new ReferenceEngines().runNative(
                     input, 100, 0, Integer.MAX_VALUE, false, null, true, false);
             labels = result == null ? null : result.getObjectsMap();
 
@@ -346,7 +347,7 @@ public class Mcib3dPartitionProbeTest {
             System.out.println("=== excludeOnEdges, single volume, three objects ===");
             System.out.println("  A touches z=0 only, B touches x=0 only, C touches no border");
 
-            ObjectsCounter3DWrapper.Result result = new ObjectsCounter3DWrapper().runNative(
+            ObjectsCounter3DWrapper.Result result = new ReferenceEngines().runNative(
                     input, 100, 0, Integer.MAX_VALUE, true, null, true, false);
             mcib3dLabels = result == null ? null : result.getObjectsMap();
 

@@ -74,7 +74,7 @@ public class MedianEquivalenceTest {
         ImagePlus image = threeObjectsWithVaryingIntensity();
         ImagePlus labels = null;
         try {
-            ObjectsCounter3DWrapper.Result classic = new ObjectsCounter3DWrapper().run(
+            ObjectsCounter3DWrapper.Result classic = new ReferenceEngines().run(
                     image, THRESHOLD, 0, Integer.MAX_VALUE, false, false, true, false);
             ResultsTable classicStats = classic.getStatistics();
             labels = classic.getObjectsMap();
@@ -119,7 +119,7 @@ public class MedianEquivalenceTest {
         ImagePlus image = threeObjectsWithVaryingIntensity();
         ImagePlus labels = null;
         try {
-            ObjectsCounter3DWrapper.Result classic = new ObjectsCounter3DWrapper().run(
+            ObjectsCounter3DWrapper.Result classic = new ReferenceEngines().run(
                     image, THRESHOLD, 0, Integer.MAX_VALUE, false, false, true, false);
             labels = classic.getObjectsMap();
             LabelFeatureAccumulator.Result measured =
@@ -157,7 +157,7 @@ public class MedianEquivalenceTest {
             ImagePlus image = threeObjectsWithVaryingIntensity();
             ImagePlus labels = null;
             try {
-                ObjectsCounter3DWrapper.Result classic = new ObjectsCounter3DWrapper().run(
+                ObjectsCounter3DWrapper.Result classic = new ReferenceEngines().run(
                         image, thresholds[t], 0, Integer.MAX_VALUE, false, false, true, false);
                 ResultsTable stats = classic.getStatistics();
                 labels = classic.getObjectsMap();

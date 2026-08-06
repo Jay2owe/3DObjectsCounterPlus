@@ -91,29 +91,15 @@ public final class OC3DPlusRunner {
         }
     }
 
+    /**
+     * The seam for label-image measurement, and only that.
+     *
+     * <p>It carried two more members until Stage 04: {@code run}, the classic
+     * {@code Counter3D} path, and {@code runNative}, the mcib3d one. Detection is one
+     * streaming path now and does not go through a backend at all, so an interface that
+     * still named two engines would describe a choice the code no longer makes.
+     */
     interface CounterBackend {
-        ObjectsCounter3DWrapper.Result run(
-                ImagePlus img,
-                int threshold,
-                int minSize,
-                int maxSize,
-                boolean excludeOnEdges,
-                boolean redirect,
-                boolean wantObjectsMap,
-                boolean wantMaskedImage);
-
-        ObjectsCounter3DWrapper.Result runNative(
-                ImagePlus img,
-                int threshold,
-                int minSize,
-                int maxSize,
-                boolean excludeOnEdges,
-                ImagePlus redirectImage,
-                boolean wantObjectsMap,
-                boolean wantMaskedImage,
-                ProgressReporter progress,
-                boolean finishProgress);
-
         ObjectsCounter3DWrapper.Result fromLabelImage(
                 ImagePlus labelImage,
                 ImagePlus redirectImage,
@@ -127,34 +113,6 @@ public final class OC3DPlusRunner {
 
     private static final class DefaultCounterBackend implements CounterBackend {
         private final ObjectsCounter3DWrapper wrapper = new ObjectsCounter3DWrapper();
-
-        @Override public ObjectsCounter3DWrapper.Result run(
-                ImagePlus img,
-                int threshold,
-                int minSize,
-                int maxSize,
-                boolean excludeOnEdges,
-                boolean redirect,
-                boolean wantObjectsMap,
-                boolean wantMaskedImage) {
-            return wrapper.run(img, threshold, minSize, maxSize, excludeOnEdges,
-                    redirect, wantObjectsMap, wantMaskedImage);
-        }
-
-        @Override public ObjectsCounter3DWrapper.Result runNative(
-                ImagePlus img,
-                int threshold,
-                int minSize,
-                int maxSize,
-                boolean excludeOnEdges,
-                ImagePlus redirectImage,
-                boolean wantObjectsMap,
-                boolean wantMaskedImage,
-                ProgressReporter progress,
-                boolean finishProgress) {
-            return wrapper.runNative(img, threshold, minSize, maxSize, excludeOnEdges,
-                    redirectImage, wantObjectsMap, wantMaskedImage, progress, finishProgress);
-        }
 
         @Override public ObjectsCounter3DWrapper.Result fromLabelImage(
                 ImagePlus labelImage,
@@ -1214,8 +1172,8 @@ public final class OC3DPlusRunner {
     }
 
     // Wadell sphericity = (36*pi)^(1/3) * V^(2/3) / S, written as pi^(1/3)*(6V)^(2/3)/S.
-    // Matches mcib3d compactness^(1/3); with the Lindblad corrected pixel surface a
-    // digitized sphere -> 1.0.
+    // Equals compactness^(1/3); with the Lindblad corrected pixel surface a digitized
+    // sphere -> 1.0.
     private static double sphericity(double volume, double surfaceArea) {
         if (volume <= 0.0 || surfaceArea <= 0.0) return Double.NaN;
         return Math.pow(Math.PI, 1.0 / 3.0)
@@ -1223,7 +1181,7 @@ public final class OC3DPlusRunner {
                 / surfaceArea;
     }
 
-    // mcib3d compactness = (36*pi*V^2) / S^3 (== sphericity^3), so a sphere -> 1.0 and
+    // Compactness = (36*pi*V^2) / S^3 (== sphericity^3), so a sphere -> 1.0 and
     // less-round objects fall below 1. (Reciprocal of the older S^3/(36*pi*V^2) form.)
     private static double compactness(double volume, double surfaceArea) {
         if (volume <= 0.0 || surfaceArea <= 0.0) return Double.NaN;

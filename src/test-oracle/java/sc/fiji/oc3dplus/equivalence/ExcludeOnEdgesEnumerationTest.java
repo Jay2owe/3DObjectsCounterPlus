@@ -6,6 +6,7 @@ import org.junit.Test;
 import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
 import sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper;
+import sc.fiji.oc3dplus.engine.ReferenceEngines;
 
 import java.io.File;
 import java.io.IOException;
@@ -331,7 +332,7 @@ public class ExcludeOnEdgesEnumerationTest {
     }
 
     private static Map<String, Box> classicObjects(ImagePlus input) {
-        ObjectsCounter3DWrapper.Result result = new ObjectsCounter3DWrapper().run(
+        ObjectsCounter3DWrapper.Result result = new ReferenceEngines().run(
                 input, THRESHOLD, 1, Integer.MAX_VALUE, true, false, false, false);
         return boxes(result.getStatistics());
     }

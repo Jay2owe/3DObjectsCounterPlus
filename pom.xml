@@ -143,18 +143,35 @@
 		<dependency>
 			<groupId>io.github.jay2owe</groupId>
 			<artifactId>oc3d-core</artifactId>
-			<version>0.1.0-SNAPSHOT</version>
+			<version>0.2.0-SNAPSHOT</version>
 		</dependency>
 
-		<!-- Native 3D Objects Counter (provided by Fiji's core update site) -->
-		<dependency>
-			<groupId>sc.fiji</groupId>
-			<artifactId>3D_Objects_Counter</artifactId>
-			<version>2.0.1</version>
-			<scope>provided</scope>
-		</dependency>
+		<!--
+		  THE TWO GPLv3 DEPENDENCIES ARE STILL HERE, AND STAGE 04 IS NOT FINISHED.
 
-		<!-- mcib3d-core: thread-safe 3D measurement (provided by Fiji) -->
+		  sc.fiji:3D_Objects_Counter (the classic Utilities.Counter3D) is no longer
+		  reachable from src/main at all: the classic and mcib3d reference engines were
+		  moved to src/test-oracle/java/.../ReferenceEngines.java, compiled only by the
+		  `oracle` profile below, which re-declares both jars at test scope.
+
+		  org.framagit.mcib3d:mcib3d-core is still needed by exactly one shipped file:
+		  engine/extended/CompositeInputMeasurements.java, which reads five per-object
+		  measurements from mcib3d - centroid-to-surface distance mean and SD,
+		  ellipsoid spareness, elongation and flatness - to feed Morph_SRI, Morph_PB
+		  and Morph_MP.
+
+		  The migration plan and its handoff both state that every mcib3d reference in
+		  src/main is confined to ObjectsCounter3DWrapper and that engine/extended/
+		  "does NOT touch mcib3d at all". That is not true, and TOLERANCES.md declares
+		  Morph_SRI, Morph_PB, Morph_MP and Morph_VSD Tier 1 exact on the strength of
+		  it. Removing this dependency means reimplementing those inputs, which can
+		  move four columns the contract says cannot move - so it is a decision, not a
+		  deletion, and it is with the user.
+
+		  Until then the licence stays as it is. Do not flip it while this dependency
+		  is declared: the flip belongs in the same commit that removes the last GPL
+		  dependency, and this is that dependency.
+		-->
 		<dependency>
 			<groupId>org.framagit.mcib3d</groupId>
 			<artifactId>mcib3d-core</artifactId>
@@ -200,4 +217,93 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<!--
+		  mvn -Poracle test
+
+		  Adds the two GPLv3 reference engines and the tests that compare against
+		  them. Off by default and never used to build a released artifact: with this
+		  profile inactive, `mvn dependency:tree` resolves no GPL artifact at all.
+
+		  Requires both jars in the local repository. mcib3d-core is not on Maven
+		  Central; it ships inside Fiji.app/plugins/mcib3d-suite/ and has to be
+		  installed by hand:
+
+		    mvn install:install-file -Dfile=mcib3d-core-4.1.7b.jar \
+		      -DgroupId=org.framagit.mcib3d -DartifactId=mcib3d-core \
+		      -Dversion=4.1.7b -Dpackaging=jar -DgeneratePom=true
+
+		  A machine without them cannot run the oracle profile, which is the point:
+		  the default build must not need them.
+		-->
+		<profile>
+			<id>oracle</id>
+			<dependencies>
+				<dependency>
+					<groupId>sc.fiji</groupId>
+					<artifactId>3D_Objects_Counter</artifactId>
+					<version>2.0.1</version>
+					<scope>test</scope>
+				</dependency>
+				<!--
+				  mcib3d-core is NOT re-declared here. It is still a provided-scope
+				  dependency of the default build (see the note above
+				  CompositeInputMeasurements), and provided scope already reaches the
+				  test classpath. Declaring it here at test scope would override that
+				  and break the compilation of src/main under this profile - which is
+				  how this comment came to exist.
+
+				  When CompositeInputMeasurements stops needing mcib3d, move the
+				  coordinate here at test scope in the same commit that removes it
+				  from the default dependencies, and flip the licence in that commit.
+				-->
+
+			</dependencies>
+			<build>
+				<plugins>
+					<!--
+					  One JVM per test class in this profile.
+
+					  The classic reference engine drives Fiji through global state -
+					  ij.Prefs and WindowManager - and its own javadoc says it needs
+					  external synchronisation. Sharing a JVM with the macro
+					  entry-point tests, which depend on ij.Macro's per-thread option
+					  table, made ObjectsMapEntryPointTest fail in the full oracle run
+					  while passing on its own. Isolating the forks removes the
+					  interference at its cause instead of reordering around it.
+
+					  It costs about a minute on an opt-in profile, which is the right
+					  trade for evidence that has to be reproducible.
+					-->
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<forkCount>1</forkCount>
+							<reuseForks>false</reuseForks>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>build-helper-maven-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>add-oracle-test-source</id>
+								<phase>generate-test-sources</phase>
+								<goals>
+									<goal>add-test-source</goal>
+								</goals>
+								<configuration>
+									<sources>
+										<source>src/test-oracle/java</source>
+									</sources>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 </project>

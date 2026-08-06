@@ -101,8 +101,25 @@ public class FeretComparisonProbeTest {
         }
     }
 
-    /** {@code {exactFeret, estimatedFeret}} per object, ascending by label. */
-    private static List<double[]> measurePairs(ImagePlus labels) {
+    /** {@code {exactFeret, estimatedFeret, voxels, elongation}} per object, ascending by label. */
+    static List<double[]> measurePairs(ImagePlus labels) {
+        return measurePairs(labels, Double.MAX_VALUE, null);
+    }
+
+    /**
+     * As {@link #measurePairs(ImagePlus)}, but skips objects above
+     * {@code maxVoxelsPerObject} and reports how many it skipped in
+     * {@code skippedOut[0]} when that array is non-null.
+     *
+     * <p>The cap exists for real data, not for the synthetic shapes here. mcib3d's
+     * exact Feret is pairwise over the object's contour, so its cost grows with the
+     * square of the contour; one 13M-voxel object in the real corpus would take
+     * longer than the rest of the corpus put together. A skipped object is counted
+     * and reported rather than silently dropped, because "we measured everything"
+     * and "we measured everything small" are different claims.
+     */
+    static List<double[]> measurePairs(ImagePlus labels, double maxVoxelsPerObject,
+                                       int[] skippedOut) {
         List<double[]> out = new ArrayList<double[]>();
 
         sc.fiji.oc3d.core.measure.LabelFeatureAccumulator.Result measured =
@@ -116,18 +133,26 @@ public class FeretComparisonProbeTest {
         for (int i = 0; i < objects.size(); i++) {
             mcib3d.geom2.Object3DInt object = objects.get(i);
             if (object == null) continue;
+            if (object.size() > maxVoxelsPerObject) {
+                if (skippedOut != null && skippedOut.length > 0) skippedOut[0]++;
+                continue;
+            }
             int label = Math.round(object.getLabel());
             Double exact = new mcib3d.geom2.measurements.MeasureFeret(object)
                     .getValueMeasurement(mcib3d.geom2.measurements.MeasureFeret.FERET_UNIT);
             sc.fiji.oc3d.core.measure.LabelFeatureAccumulator.FeatureValues values =
                     measured.valuesForLabel(label);
             if (exact == null || values == null) continue;
-            out.add(new double[] {exact.doubleValue(), values.feretDiameterMax()});
+            out.add(new double[] {
+                    exact.doubleValue(),
+                    values.feretDiameterMax(),
+                    values.voxelCount(),
+                    values.elongation()});
         }
         return out;
     }
 
-    private static String distribution(List<Double> relative) {
+    static String distribution(List<Double> relative) {
         if (relative.isEmpty()) return "no data";
         List<Double> sorted = new ArrayList<Double>(relative);
         Collections.sort(sorted);
@@ -137,12 +162,12 @@ public class FeretComparisonProbeTest {
                 + " max=" + format(percentile(sorted, 1.0));
     }
 
-    private static double percentile(List<Double> sorted, double fraction) {
+    static double percentile(List<Double> sorted, double fraction) {
         int index = (int) Math.round(fraction * (sorted.size() - 1));
         return sorted.get(index).doubleValue();
     }
 
-    private static String format(double value) {
+    static String format(double value) {
         return String.format(java.util.Locale.ROOT, "%+.4f%%", value * 100.0);
     }
 

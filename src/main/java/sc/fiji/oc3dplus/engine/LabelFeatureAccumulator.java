@@ -167,13 +167,27 @@ final class LabelFeatureAccumulator {
 
     /**
      * Per-surface-voxel area weight from Lindblad (2005), "Surface area estimation
-     * of digitized 3D objects using weighted local configurations". Reproduces
-     * mcib3d-core {@code Object3DVoxels.computeContours()} corrected surface exactly:
-     * voxels are classified by exposed-face count (1-6), with the 3-face case split
-     * by whether an opposite pair of faces is exposed. The weights are in cubic-voxel
-     * (pixel) units and deliberately ignore anisotropic calibration, matching mcib3d's
-     * corrected sphericity/compactness. A voxel with all 6 faces exposed (an isolated
-     * single voxel) contributes nothing, exactly as mcib3d does.
+     * of digitized 3D objects using weighted local configurations".
+     *
+     * <p>The definition, in full, so this file does not depend on another
+     * implementation to be read: a surface voxel is classified by how many of its six
+     * faces are exposed, and contributes the weight for that class. One exposed face
+     * contributes 0.894, two 1.3409, three 1.5879 unless the exposed faces include an
+     * opposite pair in which case 2.0, four 8/3, five 10/3. Six exposed faces - an
+     * isolated single voxel - contributes nothing, which is a property of the
+     * weighting scheme rather than an omission.
+     *
+     * <p>The weights are in cubic-voxel (pixel) units and deliberately ignore
+     * anisotropic calibration. That is what makes the corrected sphericity and
+     * compactness comparable across calibrations, and it is why the reported
+     * {@code Surface (unit^2)} column is computed separately from calibrated contact
+     * faces rather than from these weights.
+     *
+     * <p>This reproduces the corrected surface of mcib3d-core's
+     * {@code Object3DVoxels.computeContours()}, verified rather than assumed: over the
+     * Stage 02 corpus the surface columns were bit-identical and corrected sphericity
+     * agreed to 7.6e-16. That is a recorded agreement between two implementations of
+     * the same published rule, not a dependency.
      */
     private static double correctedSurfaceWeight(boolean xMinus, boolean xPlus,
                                                  boolean yMinus, boolean yPlus,
@@ -192,7 +206,7 @@ final class LabelFeatureAccumulator {
             case 3: return oppositePair ? 2.0 : 1.5879;
             case 4: return 8.0 / 3.0;
             case 5: return 10.0 / 3.0;
-            default: return 0.0; // face == 6 isolated voxel contributes nothing, as in mcib3d
+            default: return 0.0; // face == 6: an isolated voxel has no weight in the scheme
         }
     }
 
@@ -397,8 +411,8 @@ final class LabelFeatureAccumulator {
         double calibratedVolume;
         double surfaceArea;
         // Lindblad (2005) weighted-configuration surface in cubic-voxel (pixel) units.
-        // Used for mcib3d-aligned corrected sphericity/compactness, NOT the reported
-        // Surface column (which stays the calibrated contact surface above).
+        // Feeds corrected sphericity/compactness only, NOT the reported Surface column
+        // (which stays the calibrated contact surface above).
         double correctedSurfacePixels;
         double intensitySum;
         double intensitySumSquares;
