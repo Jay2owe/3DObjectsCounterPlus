@@ -66,4 +66,27 @@ public class SummaryReporterTest {
         assertTrue(summary.contains("Elongation=1.25"));
         assertTrue(summary.contains("Max Feret diameter=6"));
     }
+
+    @Test
+    public void formatsCompletionStatusWithObjectCount() {
+        ResultsTable stats = new ResultsTable();
+        stats.incrementCounter();
+        stats.incrementCounter();
+        OC3DPlusResult result = new OC3DPlusResult(stats, null, null, null);
+
+        assertEquals("3D Objects Counter+: 2 objects detected in 'stack.tif'.",
+                SummaryReporter.formatCompletionStatus("stack.tif", result));
+        assertEquals("3D Objects Counter+: 0 objects detected in 'empty.tif'.",
+                SummaryReporter.formatCompletionStatus("empty.tif", null));
+    }
+
+    @Test
+    public void completionStatusUsesSingularObjectGrammar() {
+        ResultsTable stats = new ResultsTable();
+        stats.incrementCounter();
+        OC3DPlusResult result = new OC3DPlusResult(stats, null, null, null);
+
+        assertEquals("3D Objects Counter+: 1 object detected in '<untitled>'.",
+                SummaryReporter.formatCompletionStatus(null, result));
+    }
 }

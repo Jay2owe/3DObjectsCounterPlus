@@ -2,7 +2,7 @@ package sc.fiji.oc3dplus.equivalence;
 
 import ij.ImagePlus;
 import ij.measure.ResultsTable;
-import sc.fiji.oc3dplus.engine.ObjectMapBuilder;
+import sc.fiji.oc3d.core.map.ObjectMapBuilder;
 import sc.fiji.oc3dplus.engine.ObjectsCounter3DWrapper;
 import sc.fiji.oc3dplus.engine.SummaryReporter;
 import sc.fiji.oc3dplus.api.OC3DPlus;

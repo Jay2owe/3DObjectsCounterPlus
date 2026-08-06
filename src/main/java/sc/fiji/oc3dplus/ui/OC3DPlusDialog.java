@@ -4,11 +4,11 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
 import ij.process.ImageProcessor;
+import sc.fiji.oc3d.core.map.ObjectMapBuilder;
 import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusParameters;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
 import sc.fiji.oc3dplus.engine.ImageOps;
-import sc.fiji.oc3dplus.engine.ObjectMapBuilder;
 import sc.fiji.oc3dplus.engine.SummaryReporter;
 
 import javax.swing.BorderFactory;
@@ -874,12 +874,12 @@ public final class OC3DPlusDialog extends JDialog {
         if (runModel.showStats && result != null && result.statistics() != null) {
             result.statistics().show("Results for " + title);
         }
+        buildAndShowFinalMaps(output, runModel, title);
         if (runModel.showSummary) {
             SummaryReporter.log(title, redirectTitle(runModel), result,
                     runModel.minSize, runModel.maxSize, runModel.threshold);
         }
-        buildAndShowFinalMaps(output, runModel, title);
-        IJ.showStatus("3D Objects Counter+: outputs ready for '" + title + "'.");
+        IJ.showStatus(SummaryReporter.formatCompletionStatus(title, result));
     }
 
     private EngineRunOutput buildEngineRunOutput(OC3DPlusResult result,

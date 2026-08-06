@@ -4,11 +4,16 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.measure.ResultsTable;
 import ij.process.ByteProcessor;
+import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 import org.junit.Test;
+import sc.fiji.oc3d.core.map.ObjectMapBuilder;
+
+import java.awt.Color;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -27,6 +32,7 @@ public class ObjectMapBuilderTest {
         assertEquals(0.0, surface.getStack().getProcessor(3).getf(2, 2), 0.0);
         assertEquals(7.0, surface.getStack().getProcessor(2).getf(2, 2), 0.0);
         assertEquals(26, positiveVoxelCount(surface));
+        assertEquals(3, positiveSliceCount(surface));
     }
 
     @Test
@@ -41,8 +47,10 @@ public class ObjectMapBuilderTest {
         assertNull(labels.getOverlay());
         assertNotNull(objects.getOverlay());
         assertEquals(1, objects.getOverlay().size());
+        assertEquals(Color.RED, objects.getOverlay().get(0).getStrokeColor());
         assertEquals(7.0, labels.getStack().getProcessor(2).getf(2, 3), 0.0);
         assertEquals(7.0, objects.getStack().getProcessor(2).getf(2, 3), 0.0);
+        assertEquals(3, positiveSliceCount(objects));
     }
 
     @Test
@@ -55,6 +63,23 @@ public class ObjectMapBuilderTest {
         assertSame(labels, objects);
         assertNotNull(objects.getOverlay());
         assertEquals("Objects map of source", objects.getTitle());
+    }
+
+    @Test
+    public void objectMapRendersEveryPositiveLabelAsAVisibleShape() {
+        ImagePlus labels = lowAndHighLabelStack();
+
+        ImagePlus objects = ObjectMapBuilder.objectMapInPlace(labels, null, "source");
+
+        for (int slice = 1; slice <= 3; slice++) {
+            objects.setSlice(slice);
+            int renderedRgb = objects.getBufferedImage().getRGB(2, 2) & 0x00ffffff;
+            assertNotEquals("label 1 must not render as black on occupied slice " + slice,
+                    0, renderedRgb);
+            assertEquals("display changes must preserve the numeric label image",
+                    1.0, objects.getProcessor().getf(2, 2), 0.0);
+        }
+        assertEquals(1000.0, objects.getStack().getProcessor(1).getf(0, 0), 0.0);
     }
 
     @Test
@@ -131,6 +156,8 @@ public class ObjectMapBuilderTest {
         assertEquals(7.0, centers.getStack().getProcessor(4).getf(1, 2), 0.0);
         assertEquals(1, positiveVoxelCount(centroids));
         assertEquals(1, positiveVoxelCount(centers));
+        assertEquals(1, positiveSliceCount(centroids));
+        assertEquals(1, positiveSliceCount(centers));
         assertNotNull(centroids.getOverlay());
         assertNotNull(centers.getOverlay());
         assertEquals(1, centroids.getOverlay().size());
@@ -203,6 +230,17 @@ public class ObjectMapBuilderTest {
         return new ImagePlus("labels", stack);
     }
 
+    private static ImagePlus lowAndHighLabelStack() {
+        ImageStack stack = new ImageStack(5, 5);
+        for (int z = 0; z < 3; z++) {
+            ShortProcessor sp = new ShortProcessor(5, 5);
+            sp.set(2, 2, 1);
+            if (z == 0) sp.set(0, 0, 1000);
+            stack.addSlice(sp);
+        }
+        return new ImagePlus("labels", stack);
+    }
+
     private static ImagePlus pointLabelStack(int size, int labels) {
         ImageStack stack = new ImageStack(size, size);
         for (int z = 0; z < size; z++) {
@@ -224,6 +262,23 @@ public class ObjectMapBuilderTest {
             for (int i = 0; i < stack.getProcessor(slice).getPixelCount(); i++) {
                 if (stack.getProcessor(slice).getf(i) > 0) count++;
             }
+        }
+        return count;
+    }
+
+    private static int positiveSliceCount(ImagePlus image) {
+        int count = 0;
+        ImageStack stack = image.getStack();
+        for (int slice = 1; slice <= stack.size(); slice++) {
+            ImageProcessor processor = stack.getProcessor(slice);
+            boolean found = false;
+            for (int i = 0; i < processor.getPixelCount(); i++) {
+                if (processor.getf(i) > 0) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) count++;
         }
         return count;
     }

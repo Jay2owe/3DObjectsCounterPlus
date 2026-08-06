@@ -20,7 +20,7 @@
 	  Second digit = major rework or large optimization.
 	  Third digit = bug fix or small tweak/optimization.
 	-->
-	<version>0.2.0-SNAPSHOT</version>
+	<version>0.2.0</version>
 
 	<name>3D Objects Counter+</name>
 	<description>Fiji/ImageJ plugin for 3D object counting with morphology filters, optional XY fractal, composite-shape, arborization and Sholl measurements, plus recursive folder batch analysis and within-batch descriptive scoring.</description>
@@ -101,6 +101,7 @@
 
 	<properties>
 		<main-class>sc.fiji.oc3dplus.ObjectsCounter3DPlus</main-class>
+		<oc3d-core.version>v0.2.0</oc3d-core.version>
 		<!--
 		  Deliberately still bsd_3: this drives the per-file headers that
 		  license-maven-plugin would stamp on *this repository's own source*,
@@ -118,6 +119,10 @@
 			<id>scijava.public</id>
 			<url>https://maven.scijava.org/content/groups/public</url>
 		</repository>
+		<repository>
+			<id>jitpack</id>
+			<url>https://jitpack.io</url>
+		</repository>
 	</repositories>
 
 	<dependencies>
@@ -127,23 +132,15 @@
 		</dependency>
 
 		<!--
-		  Shared engine, extracted for reuse across the 3D Objects Counter family.
-		  The group id is deliberately io.github.jay2owe and not sc.fiji: this
-		  module is never published as a user-facing jar, and sc.fiji is the
-		  SciJava org's own namespace. The Java package is sc.fiji.oc3d.core.
-		  Group id and package are needed as different strings by the shade
-		  configuration - see the migration plan, Stage 06.
-
-		  SHADING DEBT: this is compile scope with no shading configured yet, so
-		  the built jar does not contain these classes and would fail on a real
-		  Fiji install with NoClassDefFoundError. Stage 06 adds maven-shade-plugin
-		  with the sc.fiji.oc3d.core -> sc.fiji.oc3dplus.internal.core relocation.
-		  Do not publish a jar before then.
+		  Shared engine for the 3D Objects Counter family, resolved from the public
+		  immutable v0.2.0 tag through JitPack. It is compiled directly
+		  and shaded below into this plugin's private namespace, so users still
+		  install one collision-free JAR and never install a separate core JAR.
 		-->
 		<dependency>
-			<groupId>io.github.jay2owe</groupId>
+			<groupId>com.github.Jay2owe</groupId>
 			<artifactId>oc3d-core</artifactId>
-			<version>0.2.0-SNAPSHOT</version>
+			<version>${oc3d-core.version}</version>
 		</dependency>
 
 		<!--
@@ -211,8 +208,77 @@
 						</manifest>
 						<manifestEntries>
 							<Automatic-Module-Name>io.github.jay2owe.oc3dplus</Automatic-Module-Name>
+							<Bundled-Dependency>com.github.Jay2owe:oc3d-core:${oc3d-core.version}</Bundled-Dependency>
 						</manifestEntries>
 					</archive>
+				</configuration>
+			</plugin>
+
+			<!-- Bundle only oc3d-core, relocated so every OC3D-family plugin can
+			     carry its tested core version safely in Fiji's flat classloader. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>bundle-oc3d-core</id>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<artifactSet>
+								<includes>
+									<include>com.github.Jay2owe:oc3d-core</include>
+								</includes>
+							</artifactSet>
+							<relocations>
+								<relocation>
+									<pattern>sc.fiji.oc3d.core</pattern>
+									<shadedPattern>sc.fiji.oc3dplus.internal.core</shadedPattern>
+									<!-- Keep the core's public JVM/ImagePlus property keys
+									     stable rather than rewriting string constants. -->
+									<excludes>
+										<exclude>sc.fiji.oc3d.core.maxDenseLabel</exclude>
+										<exclude>sc.fiji.oc3d.core.maxOverlayLabels</exclude>
+										<exclude>sc.fiji.oc3d.core.overlaySkipped</exclude>
+										<exclude>sc.fiji.oc3d.core.overlaySkippedReason</exclude>
+										<exclude>sc.fiji.oc3d.core.optionalMapMemoryReserveBytes</exclude>
+									</excludes>
+								</relocation>
+							</relocations>
+							<createDependencyReducedPom>true</createDependencyReducedPom>
+							<dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+							<filters>
+								<filter>
+									<artifact>com.github.Jay2owe:oc3d-core</artifact>
+									<excludes>
+										<exclude>META-INF/maven/**</exclude>
+									</excludes>
+								</filter>
+							</filters>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>verify-packaged-core</id>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<systemPropertyVariables>
+						<oc3dplus.shadedJar>${project.build.directory}/${project.build.finalName}.jar</oc3dplus.shadedJar>
+						<oc3dplus.coreVersion>${oc3d-core.version}</oc3dplus.coreVersion>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 		</plugins>

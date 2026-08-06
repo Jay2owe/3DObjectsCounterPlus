@@ -7,11 +7,11 @@ import ij.measure.ResultsTable;
 import ij.process.ByteProcessor;
 import ij.process.ShortProcessor;
 import org.junit.Test;
+import sc.fiji.oc3d.core.map.ObjectMapBuilder;
 import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusParameters;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
 import sc.fiji.oc3dplus.engine.OC3DPlusRunner;
-import sc.fiji.oc3dplus.engine.ObjectMapBuilder;
 
 import java.util.HashSet;
 import java.util.Set;

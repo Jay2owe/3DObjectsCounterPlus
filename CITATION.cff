@@ -16,8 +16,8 @@ authors:
 repository-code: "https://github.com/Jay2owe/3DObjectsCounterPlus"
 url: "https://github.com/Jay2owe/3DObjectsCounterPlus"
 license: GPL-3.0-or-later
-version: "0.1.1"
-date-released: 2026-06-02
+version: "0.2.0"
+date-released: 2026-08-06
 keywords:
   - fiji
   - imagej

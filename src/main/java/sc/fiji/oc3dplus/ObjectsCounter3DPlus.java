@@ -6,11 +6,11 @@ import ij.Macro;
 import ij.WindowManager;
 import ij.plugin.PlugIn;
 import ij.plugin.frame.Recorder;
+import sc.fiji.oc3d.core.map.ObjectMapBuilder;
 import sc.fiji.oc3dplus.api.MorphPredicate;
 import sc.fiji.oc3dplus.api.OC3DPlus;
 import sc.fiji.oc3dplus.api.OC3DPlusParameters;
 import sc.fiji.oc3dplus.api.OC3DPlusResult;
-import sc.fiji.oc3dplus.engine.ObjectMapBuilder;
 import sc.fiji.oc3dplus.engine.SummaryReporter;
 import sc.fiji.oc3dplus.ui.OC3DPlusDialog;
 import sc.fiji.oc3dplus.ui.OC3DPlusDialogModel;
@@ -120,13 +120,14 @@ public class ObjectsCounter3DPlus implements PlugIn {
         if (parsed.showStats && result.statistics() != null) {
             result.statistics().show("Results for " + image.getTitle());
         }
+        showSelectedMaps(image.getTitle(), result, parsed.showLabels,
+                parsed.showSurfaces, parsed.showCentroids, parsed.showCentersOfMass);
         if (parsed.showSummary) {
             SummaryReporter.log(image.getTitle(),
                     redirect == null ? null : redirect.getTitle(), result,
                     parsed.minSize, parsed.maxSize, parsed.threshold);
         }
-        showSelectedMaps(image.getTitle(), result, parsed.showLabels,
-                parsed.showSurfaces, parsed.showCentroids, parsed.showCentersOfMass);
+        IJ.showStatus(SummaryReporter.formatCompletionStatus(image.getTitle(), result));
 
         recordIfNeeded(parsed);
     }

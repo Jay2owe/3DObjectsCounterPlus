@@ -2,10 +2,12 @@
 
 All notable changes to 3D Objects Counter+ are documented here.
 
-## Unreleased
+## [0.2.0] - 2026-08-06
 
 ### Added
 
+- A persistent Fiji completion-status message reporting the detected object
+  count after every interactive or macro run.
 - Secondary `Extended measurements...` window with current-run-only settings
   for XY fractal/lacunarity, RI/SRI/PB/MP/VSD composite indices, and
   arborization/Sholl measurements.
@@ -22,12 +24,23 @@ All notable changes to 3D Objects Counter+ are documented here.
 
 ### Changed
 
+- Map construction now comes directly from `oc3d-core` 0.2.0. The copied Plus
+  map builder has been removed, and the core is privately relocated into the
+  plugin JAR so installation remains a single file with no runtime dependency.
 - On a hyperstack, detection now measures **one channel and one frame** — the
   displayed position unless a macro or the dialog chooses another. Previously it
   ran over the first `nSlices` planes of the underlying stack, so a 2-channel
   101-frame timelapse was measured as one plane of 202 and objects could be
   joined across channels. Plain 3D stacks are unaffected, and a macro that does
   not mention `channel=` or `frame=` records and replays exactly as before.
+
+### Fixed
+
+- Object and companion maps now display every positive labelled voxel as a
+  visible mask pixel on every occupied Z slice. Previously, scaling grayscale
+  to the highest object ID made low-numbered objects render black even though
+  their full 3D labels were present. Raw label IDs remain unchanged, labels use
+  a contrasting overlay colour, and the fix adds no stack copy or pixel pass.
 
 ### Compatibility and safety
 

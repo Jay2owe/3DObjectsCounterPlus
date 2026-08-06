@@ -14,6 +14,7 @@ mcib3d-core-*.jar
 # as in a fresh clone.
 !/docs/
 /docs/*
+!/docs/fixed_bugs/
 # ...with one exception. docs/migration/TOLERANCES.md is the declared-tolerance
 # contract the equivalence gate rests on, and ToleranceContractTest reads it at
 # build time - so with all of docs/ ignored, a fresh clone could not run the test

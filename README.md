@@ -323,6 +323,11 @@ enabled, it measures morphology and intensity features from the label map, appli
 the selected ranges, and then builds the requested maps and results from the
 filtered label image.
 
+The shared labelling, measurement, and map implementation comes from
+`oc3d-core`. Packaging relocates that code into a private Plus namespace inside
+the plugin JAR, so users still install one file and different OC3D variants can
+carry their tested core versions without classloader collisions.
+
 On a hyperstack it measures **one channel and one frame** — the displayed position
 unless `channel=`/`frame=` or the dialog's `Measure:` row chooses another. A channel
 is a separate signal and a frame a separate time point, so objects are never joined
@@ -337,7 +342,9 @@ why, are listed in `docs/migration/TOLERANCES.md`.
 
 Maps to show:
 
-- `Objects`: labelled object map with object numbers at centroids.
+- `Objects`: full labelled object shapes on every occupied Z slice, with object
+  numbers at centroids. All positive labels are displayed as a solid mask while
+  the underlying pixel values retain their numeric object IDs.
 - `Surfaces`: labelled surface-voxel map with object numbers at centroids.
 - `Centroids`: point map at geometric centroids.
 - `Centers of mass`: point map at intensity-weighted centers of mass.
@@ -353,6 +360,9 @@ Result tables:
 - `Summary`: ImageJ log line with threshold, size range, object count, and
   morphology means. If measurement redirect is active, the line starts with
   `<detection image> redirect to <measurement image>`.
+
+After every completed single-image run, Fiji's status bar also reports the
+detected object count, even when the detailed `Summary` log is hidden.
 
 Enabled extended groups append only their own `Morph_*` columns. Arborization
 also appends `Morph_ArborizationBackend`, so each object records whether the

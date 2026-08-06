@@ -53,6 +53,14 @@ public final class SummaryReporter {
         return morphSummary.isEmpty() ? line : line + " " + morphSummary;
     }
 
+    /** Formats the concise message retained in Fiji's status bar after a run. */
+    public static String formatCompletionStatus(String imageTitle, OC3DPlusResult result) {
+        int objectCount = result == null ? 0 : result.objectCount();
+        return "3D Objects Counter+: " + objectCount + " object"
+                + (objectCount == 1 ? "" : "s") + " detected in '"
+                + safeTitle(imageTitle) + "'.";
+    }
+
     static String measurementSubject(String imageTitle, String redirectTitle) {
         String title = safeTitle(imageTitle);
         String redirect = safeTitleOrEmpty(redirectTitle);
