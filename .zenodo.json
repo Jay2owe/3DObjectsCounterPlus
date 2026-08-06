@@ -1,0 +1,34 @@
+{
+  "title": "3D Objects Counter+: morphology-filterable 3D object counting for Fiji/ImageJ",
+  "description": "Extension of the classic Fiji 3D Objects Counter (Bolte and Cordelieres, 2006) with morphological filters (sphericity, compactness, elongation, volume, surface area, Feret diameter, intensity), a public Java API, and macro-recordable workflows.",
+  "upload_type": "software",
+  "license": "GPL-3.0-or-later",
+  "access_right": "open",
+  "creators": [
+    {
+      "name": "Malcolm, Jamie",
+      "orcid": "0009-0008-3862-2776",
+      "affiliation": "UK Dementia Research Institute at Imperial College London"
+    }
+  ],
+  "keywords": [
+    "fiji",
+    "imagej",
+    "microscopy",
+    "3d-object-counting",
+    "morphological-filtering",
+    "segmentation"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/Jay2owe/3DObjectsCounterPlus",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "10.1111/j.1365-2818.2006.01706.x",
+      "relation": "cites",
+      "scheme": "doi"
+    }
+  ]
+}

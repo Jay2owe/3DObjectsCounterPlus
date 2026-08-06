@@ -2,6 +2,7 @@ cff-version: 1.2.0
 message: "If you use 3D Objects Counter+ in published work, please cite it as below."
 type: software
 title: "3D Objects Counter+: morphology-filterable 3D object counting for Fiji/ImageJ"
+doi: "10.5281/zenodo.21633365"
 abstract: >-
   Extension of the classic Fiji 3D Objects Counter (Bolte and Cordelieres,
   2006) with morphological filters (sphericity, compactness, elongation,

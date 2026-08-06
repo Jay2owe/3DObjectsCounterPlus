@@ -1,5 +1,7 @@
 # 3D Objects Counter+
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21633365.svg)](https://doi.org/10.5281/zenodo.21633365)
+
 A Fiji/ImageJ plugin for 3D object counting with native-style controls and
 fixed min/max morphology filters.
 
@@ -394,7 +396,10 @@ The deployable artifact is
 ## Citing 3D Objects Counter+
 
 If you use this plugin in published work, please cite it. Citation metadata is
-in [CITATION.cff](CITATION.cff).
+in [CITATION.cff](CITATION.cff), and the
+[Zenodo concept DOI](https://doi.org/10.5281/zenodo.21633365) always resolves
+to the latest archived release. For exact reproducibility, cite the
+version-specific DOI shown on that release's Zenodo record.
 
 When publishing results that use this plugin, please also cite the upstream
 tools it builds on:
