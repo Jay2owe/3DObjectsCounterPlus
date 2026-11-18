@@ -2,6 +2,17 @@
 
 All notable changes to 3D Objects Counter+ are documented here.
 
+## [0.2.1] - 2026-11-18
+
+### Fixed
+
+- Restored the public `OC3DPlusRunner.appendReferencedMorphColumns(ImagePlus,
+  ImagePlus, ResultsTable, List, WarningSink)` method with its 0.1.x signature;
+  the values come from the current 0.2 measurement code.
+  0.2.0 removed it because nothing inside this plugin called it, but FLASH calls
+  it for 3D Object Analysis with morphology filters, which then failed with
+  `NoSuchMethodError` on installs that had Counter+ 0.2.0.
+
 ## [0.2.0] - 2026-08-06
 
 ### Added

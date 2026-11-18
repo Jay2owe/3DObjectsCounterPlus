@@ -542,13 +542,36 @@ public final class OC3DPlusRunner {
         labelImage.setProperty(PREDICATE_LABELS_PROPERTY, result.getPredicateLabels());
     }
 
-    // appendReferencedMorphColumns(ImagePlus, ImagePlus, ResultsTable, List, WarningSink)
-    // was removed in Stage 03 of the oc3d-core migration. It had zero call sites in
-    // main or test bytecode - 18 014 call edges across 268 classes were searched -
-    // so it was dead before the migration touched anything, not made dead by it.
-    // See docs/migration/STAGE03_FINDINGS.md section 1; the same search found that
-    // remapFeatures and buildFilteredStatsFromDetectedStats are still reachable from
-    // the morphology-filter branch and were therefore kept.
+    /**
+     * Append the extra statistics columns that this runner exposes for
+     * referenced morph features: sphericity, compactness, elongation, maximum
+     * Feret diameter, and maximum intensity. Returns a copied table; the input
+     * table is not mutated.
+     *
+     * <p>Public API since 0.1.0. Removed in 0.2.0 because it had no callers inside
+     * this plugin, but FLASH (an external consumer) calls it, so 0.2.0 broke FLASH's
+     * 3D morphology filters with {@code NoSuchMethodError}. Restored in 0.2.1 with the
+     * 0.1.x signature, computed by the current measurement code; keep it while released
+     * FLASH versions use it.
+     */
+    public static ResultsTable appendReferencedMorphColumns(ImagePlus labelImage,
+                                                            ImagePlus intensityImage,
+                                                            ResultsTable stats,
+                                                            List<MorphPredicate> predicates,
+                                                            OC3DPlusParameters.WarningSink warningSink) {
+        ResultsTable safeStats = stats == null ? new ResultsTable() : copyOf(stats);
+        appendEmptyMorphologyColumns(safeStats);
+        if (labelImage == null || safeStats.size() == 0) {
+            return safeStats;
+        }
+        List<MorphPredicate> safePredicates = predicates == null
+                ? Collections.<MorphPredicate>emptyList() : predicates;
+        FeatureContext featureContext = new FeatureContext(safePredicates,
+                matchingIntensityImageOrNull(labelImage, intensityImage),
+                OC3DPlusMeasurements.NONE, warningSink);
+        Map<Integer, FeatureValues> features = computeFeaturesByLabel(labelImage, featureContext);
+        return appendReferencedMorphColumnsToStats(safeStats, featureContext, features);
+    }
 
     private static ResultsTable appendReferencedMorphColumnsFromFeatures(
             ResultsTable stats,

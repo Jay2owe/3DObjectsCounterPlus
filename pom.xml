@@ -20,7 +20,7 @@
 	  Second digit = major rework or large optimization.
 	  Third digit = bug fix or small tweak/optimization.
 	-->
-	<version>0.2.0</version>
+	<version>0.2.1</version>
 
 	<name>3D Objects Counter+</name>
 	<description>Fiji/ImageJ plugin for 3D object counting with morphology filters, optional XY fractal, composite-shape, arborization and Sholl measurements, plus recursive folder batch analysis and within-batch descriptive scoring.</description>
